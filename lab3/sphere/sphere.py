@@ -34,6 +34,8 @@ class App:
             data=index_data, usage=wgpu.BufferUsage.INDEX
         )
 
+        self.index_count = index_data.size # nombre d'indices à dessiner
+
         bg_layout = self.device.create_bind_group_layout(
             entries=[
                 # données de la caméra et de la lumière
@@ -72,6 +74,7 @@ class App:
 
         # ouverture et chargement de l'image de texture
         img = Image.open("./texel_checker.png")
+        img = Image.new("RGBA", (1, 1), (255, 255, 255, 255))
         texture_size = img.size + (1,)
         texture = self.device.create_texture(
             size=texture_size,
