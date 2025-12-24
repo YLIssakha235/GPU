@@ -11,3 +11,7 @@ wheels/
 uv.lock
 ttt.py
 .gitignore
+.python-version
+pyproject.toml
+shader0.wgsl
+.env
