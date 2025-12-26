@@ -19,22 +19,23 @@ from src.camera import look_at, perspective
 # CONFIG SIMULATION (physique)
 # ============================================================
 G = -9.81           # gravité (m/s²)
-K = 60.0            # raideur des ressorts (plus grand = tissu plus rigide)
-DAMPING = 0.995     # amortissement (0.98..0.999). Trop petit -> tout s’écrase; trop grand -> ça explose
+K = 60.0            # raideur ressorts (plus grand => tissu plus rigide)
+DAMPING = 0.995     # amortissement global (0.98..0.999)
 DT = 1 / 240        # pas de temps global
-SUBSTEPS = 8        # sous-pas (stabilité collisions + ressorts)
+SUBSTEPS = 8        # sous-pas (stabilité)
 REST = 0.10         # longueur au repos entre voisins
-MASS = 1.0          # masse par particule (si ton shader l'utilise)
-WORKGROUP_SIZE = 64 # doit correspondre à @workgroup_size(...) du shader
+MASS = 0.1         # masse (si utilisée dans ton shader)
+WORKGROUP_SIZE = 64 # doit matcher @workgroup_size(64)
 
 
 # ============================================================
-# CONFIG SPHÈRE (collision + friction)
+# CONFIG SPHÈRE / SOL (collision + friction)
 # ============================================================
-SPHERE_R = 0.6      # rayon de la sphère
-MU = 0.8         # friction (0 -> glisse, 0.2..0.4 -> accroche)
-EPS = 0.004         # offset pour éviter de rester "collé" dans la sphère
+SPHERE_R = 0.8      # rayon sphère
+MU = 0.6           # friction (0=glisse, ~0.2..0.6 réaliste)
+EPS = 0.004         # petit offset anti-collage / anti-penetration
 BOUNCE = 0.0        # rebond (0 = aucun)
+FLOOR_Y = 0.0       # hauteur du sol (plan y=floor_y)
 
 
 def main():
@@ -45,23 +46,19 @@ def main():
     print("✅ Device:", device)
 
     # ------------------------------------------------------------
-    # 2) Définition "source de vérité" de la sphère
-    #    IMPORTANT : on définit la sphère ici pour pouvoir
-    #    placer le tissu AU-DESSUS dès l'initialisation.
+    # 2) "Source de vérité" de la sphère (PHYSIQUE + RENDU)
+    #    -> On définit ici les valeurs officielles.
     # ------------------------------------------------------------
-    sphere_cx, sphere_cz = 0.35, 0.0   # léger décalage en X pour casser la symétrie
-    sphere_cy = 1.0                   # hauteur de la sphère
-    sphere_r = SPHERE_R
+    sphere_cx, sphere_cz = 0.35, 0.0   # petit décalage X pour casser la symétrie
+    sphere_cy = 1.0                   # hauteur centre sphère
+    sphere_r = SPHERE_R               # rayon sphère
 
     # ------------------------------------------------------------
-    # 3) Génération du tissu (CPU) - placé au-dessus de la sphère
+    # 3) Tissu (CPU) : placé AU-DESSUS de la sphère
     # ------------------------------------------------------------
-    W, H = 10, 10
+    W, H = 20, 20  # résolution du tissu (points, pas triangles)
+    cloth_y0 = sphere_cy + sphere_r + 0.10  # centre sphère + rayon + marge
 
-    # Hauteur initiale du tissu : centre sphère + rayon + marge
-    cloth_y0 = sphere_cy + sphere_r + 0.10
-
-    # On place le tissu centré (cx, cz) pareil que la sphère (ou légèrement décalé)
     positions_np, velocities_np = make_grid_cloth(
         W, H, REST,
         y0=cloth_y0,
@@ -69,16 +66,18 @@ def main():
         cz=sphere_cz,
     )
 
-    # -------------------------------------------------
-    # Petite poussée initiale pour casser la symétrie
-    # (sinon aucune vitesse tangentielle → pas de glissement)
-    # -------------------------------------------------
-    velocities_np[:, 0] = 0.2   # poussée en X (essaie 0.1, 0.15, 0.3)
+    # IMPORTANT :
+    # - Pour “un tissu qui se pose tranquille”, évite une grosse vitesse initiale.
+    # - Si tu veux juste casser la symétrie, mets un TRÈS petit bruit.
+    #rng = np.random.default_rng(0)
+    #velocities_np[:, 0] += (rng.uniform(-1.0, 1.0, size=(velocities_np.shape[0],)) * 0.01).astype(np.float32)
+    # aucune vitesse initiale
+    velocities_np[:] = 0.0
 
 
-    # Index buffers : wireframe + triangles
-    indices_np = make_grid_line_indices(W, H, diagonals=True)  # lignes
-    tri_indices_np = make_grid_indices(W, H)                   # triangles
+    # Index buffers (wire + triangles)
+    indices_np = make_grid_line_indices(W, H, diagonals=True)  # lignes (wireframe)
+    tri_indices_np = make_grid_indices(W, H)                   # triangles (surface)
 
     # Conversion explicite (important)
     positions_np = np.asarray(positions_np, dtype=np.float32)
@@ -118,13 +117,13 @@ def main():
         usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_DST,
     )
 
-    # Normales (calculées au compute, utilisées au rendu lit)
+    # Normales (compute -> rendu lit)
     normal_buf = device.create_buffer(
         size=positions_np.nbytes,
         usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.COPY_DST,
     )
 
-    # Index buffers (wireframe + triangles)
+    # Index buffers
     idx_buf = device.create_buffer_with_data(
         data=indices_np.tobytes(),
         usage=wgpu.BufferUsage.INDEX | wgpu.BufferUsage.COPY_DST,
@@ -135,10 +134,9 @@ def main():
     )
 
     # ------------------------------------------------------------
-    # 6) Mesh sphère wireframe (rayon 1 au départ → on scale via set_sphere)
+    # 6) Mesh sphère wireframe (rayon 1 -> on scale dans SphereRenderer.set_sphere)
     # ------------------------------------------------------------
     sphere_pos_np, sphere_idx_np = make_uv_sphere_wire(stacks=16, slices=32)
-    print("sphere pos range:", sphere_pos_np[:, 0].min(), sphere_pos_np[:, 0].max())
 
     sphere_pos_buf = device.create_buffer_with_data(
         data=sphere_pos_np.tobytes(),
@@ -151,24 +149,15 @@ def main():
 
     # ------------------------------------------------------------
     # 7) Uniform buffers (params compute)
+    #    ATTENTION: tailles doivent matcher les structs WGSL
     # ------------------------------------------------------------
-    SPRINGS_PARAMS_SIZE = 48
-    params_buf = device.create_buffer(
-        size=SPRINGS_PARAMS_SIZE,
-        usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
-    )
+    SPRINGS_PARAMS_SIZE = 48   # 8 floats (32) + 4 u32 (16) = 48
+    SPHERE_PARAMS_SIZE = 64    # 12 floats (48) + 4 u32 (16) = 64  (ton shader step4)
+    NORMALS_PARAMS_SIZE = 16   # 4 u32 = 16
 
-    SPHERE_PARAMS_SIZE = 64
-    params_sphere_buf = device.create_buffer(
-        size=SPHERE_PARAMS_SIZE,
-        usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
-    )
-
-    NORMALS_PARAMS_SIZE = 16
-    params_normals_buf = device.create_buffer(
-        size=NORMALS_PARAMS_SIZE,
-        usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
-    )
+    params_buf = device.create_buffer(size=SPRINGS_PARAMS_SIZE, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
+    params_sphere_buf = device.create_buffer(size=SPHERE_PARAMS_SIZE, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
+    params_normals_buf = device.create_buffer(size=NORMALS_PARAMS_SIZE, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
 
     # ------------------------------------------------------------
     # 8) Renderers
@@ -180,12 +169,15 @@ def main():
 
     # ------------------------------------------------------------
     # 9) Camera (MVP)
+    #    "en face" = caméra alignée Z, sans décalage X.
     # ------------------------------------------------------------
     aspect = 900 / 700
     model = np.eye(4, dtype=np.float32)
 
-    # Caméra un peu en retrait pour bien voir sphère + tissu
-    view = look_at((2.5, 2.2, 2.5), (0.0, 1.0, 0.0), (0.0, 1.0, 0.0))
+    # Caméra "en face"
+    # - eye : position caméra
+    # - target : point regardé
+    view = look_at((0.0, 1.8, 3.5), (0.0, 1.0, 0.0), (0.0, 1.0, 0.0))
     proj = perspective(60.0, aspect, 0.1, 100.0)
 
     mvp = proj @ view @ model
@@ -199,7 +191,6 @@ def main():
     # ------------------------------------------------------------
     # 10) Compute pipelines
     # ------------------------------------------------------------
-
     # ---------- A) SPRINGS ----------
     springs_code = open("shaders/step2_structural_shear_bend.wgsl", "r", encoding="utf-8").read()
     springs_mod = device.create_shader_module(code=springs_code)
@@ -232,7 +223,7 @@ def main():
         compute={"module": springs_mod, "entry_point": "main"},
     )
 
-    # ---------- B) SPHERE COLLISION ----------
+    # ---------- B) COLLISION SPHÈRE + SOL (ton shader step4_collision_friction.wgsl) ----------
     sphere_code = open("shaders/step4_collision_friction.wgsl", "r", encoding="utf-8").read()
     sphere_mod = device.create_shader_module(code=sphere_code)
 
@@ -264,7 +255,7 @@ def main():
         compute={"module": sphere_mod, "entry_point": "main"},
     )
 
-    # ---------- C) NORMALS ----------
+    # ---------- C) NORMALES ----------
     normals_code = open("shaders/compute_normals_grid.wgsl", "r", encoding="utf-8").read()
     normals_mod = device.create_shader_module(code=normals_code)
 
@@ -290,7 +281,7 @@ def main():
         compute={"module": normals_mod, "entry_point": "main"},
     )
 
-    # Nombre de workgroups (en X) pour traiter N particules
+    # Workgroups nécessaires
     dispatch_x = (N + WORKGROUP_SIZE - 1) // WORKGROUP_SIZE
     print(f"✅ dispatch_x={dispatch_x}")
 
@@ -298,7 +289,7 @@ def main():
     # 11) Boucle animation
     # ------------------------------------------------------------
     frame = 0
-    ping = True  # True => pos_a/vel_a sont l'entrée, False => pos_b/vel_b sont l'entrée
+    ping = True
     dt_sub = np.float32(DT / SUBSTEPS)
 
     @canvas.request_draw
@@ -306,15 +297,11 @@ def main():
         nonlocal frame, ping
         frame += 1
 
-        # =========================================================
-        # 0) SPHÈRE (source de vérité) : même valeurs pour physique + rendu
-        # =========================================================
+        # =========================
+        # Sphère (valeurs officielles)
+        # =========================
         cx, cy, cz = sphere_cx, sphere_cy, sphere_cz
         r = sphere_r
-
-        # (si un jour tu veux animer : change cy/cx/cz ici)
-        # t = frame * float(DT)
-        # cy = sphere_cy + 0.2 * np.sin(t)
 
         # =========================================================
         # 1) PHYSIQUE (SUBSTEPS)
@@ -323,7 +310,9 @@ def main():
 
             # ---------- PASS 1 : ressorts + gravité ----------
             springs_params_bytes = b"".join([
+                # 8 floats
                 np.array([dt_sub, G, K, REST, MASS, DAMPING, 0.0, 0.0], dtype=np.float32).tobytes(),
+                # 4 u32
                 np.array([W, H, N, 0], dtype=np.uint32).tobytes(),
             ])
             device.queue.write_buffer(params_buf, 0, springs_params_bytes)
@@ -338,19 +327,19 @@ def main():
             device.queue.submit([enc.finish()])
             ping = not ping
 
-            # ---------- PASS 2 : collision sphère + friction ----------
-            FLOOR_Y = 0.0  # sol à y=0 (à adapter si tu veux)
-
+            # ---------- PASS 2 : collision sphère + friction + sol ----------
+            # IMPORTANT: doit matcher EXACTEMENT ton struct WGSL (12 floats + 4 u32)
             sphere_params_bytes = b"".join([
+                # 12 floats
                 np.array([
                     dt_sub, cx, cy, cz,
                     r, BOUNCE, MU, EPS,
-                    FLOOR_Y, 0.0, 0.0, 0.0   # padding float pour atteindre 12 floats
+                    FLOOR_Y, 0.0, 0.0, 0.0
                 ], dtype=np.float32).tobytes(),
+                # 4 u32
                 np.array([N, 0, 0, 0], dtype=np.uint32).tobytes(),
             ])
             device.queue.write_buffer(params_sphere_buf, 0, sphere_params_bytes)
-
 
             sphere_bg = sphere_bg_a if ping else sphere_bg_b
             enc = device.create_command_encoder()
@@ -363,18 +352,14 @@ def main():
             ping = not ping
 
         # =========================================================
-        # 2) Buffer position actuel (après ping-pong)
+        # 2) Buffer de position courant (après ping-pong)
         # =========================================================
         current_pos = pos_a if ping else pos_b
 
         # =========================================================
-        # 3) Calcul des normales (SUR LE MÊME buffer que le rendu)
+        # 3) Normales (sur le même buffer que celui rendu)
         # =========================================================
-        device.queue.write_buffer(
-            params_normals_buf,
-            0,
-            np.array([W, H, 0, 0], dtype=np.uint32).tobytes()
-        )
+        device.queue.write_buffer(params_normals_buf, 0, np.array([W, H, 0, 0], dtype=np.uint32).tobytes())
         normals_bg = normals_bg_a if (current_pos is pos_a) else normals_bg_b
 
         enc = device.create_command_encoder()
@@ -386,23 +371,23 @@ def main():
         device.queue.submit([enc.finish()])
 
         # =========================================================
-        # 4) RENDU (une seule soumission)
+        # 4) Rendu (une seule submit)
         # =========================================================
         tex = context.get_current_texture()
-        view = tex.create_view()
+        view_tex = tex.create_view()
         enc = device.create_command_encoder()
 
-        # IMPORTANT : sphère rendue = sphère physique
+        # Sphère rendue = sphère physique
         sphere_renderer.set_sphere((cx, cy, cz), r)
 
         # 1) tissu surface (clear)
-        renderer_lit.encode(enc, view, current_pos, normal_buf, tri_idx_buf, clear=True)
+        renderer_lit.encode(enc, view_tex, current_pos, normal_buf, tri_idx_buf, clear=True)
 
         # 2) tissu wireframe (load)
-        renderer_wire.encode(enc, view, current_pos, idx_buf, clear=False)
+        renderer_wire.encode(enc, view_tex, current_pos, idx_buf, clear=False)
 
         # 3) sphère wireframe (load)
-        sphere_renderer.encode(enc, view, sphere_pos_buf, sphere_idx_buf, clear=False)
+        sphere_renderer.encode(enc, view_tex, sphere_pos_buf, sphere_idx_buf, clear=False)
 
         device.queue.submit([enc.finish()])
 
