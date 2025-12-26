@@ -1,3 +1,9 @@
+struct Camera {
+    mvp: mat4x4<f32>,
+};
+
+@group(0) @binding(0) var<uniform> cam: Camera;
+
 struct VSIn {
     @location(0) position: vec4<f32>,
 };
@@ -9,8 +15,7 @@ struct VSOut {
 @vertex
 fn vs_main(in: VSIn) -> VSOut {
     var out: VSOut;
-    // On prend x,z (ou x,y selon ton make_grid_cloth) et on scale un peu
-    out.clip = vec4<f32>(in.position.x * 0.7, in.position.z * 0.7, 0.0, 1.0);
+    out.clip = cam.mvp * in.position;
     return out;
 }
 

@@ -1,27 +1,22 @@
-// Step 3 — Springs (struct + shear + bend) + gravity + sphere collision + pinning
-// Double buffering : pos_in/vel_in → pos_out/vel_out
+// step3_collision_sphere.wgsl
+// Étape 3 — Collision avec une sphère (projection + correction vitesse)
+// Double buffering: pos_in/vel_in -> pos_out/vel_out
 
 struct Params {
-    dt      : f32,
-    g       : f32,
-    k       : f32,
-    rest    : f32,
+    dt: f32,
+    sphere_cx: f32,
+    sphere_cy: f32,
+    sphere_cz: f32,
 
-    mass    : f32,
-    damping : f32,
-    radius  : f32,   // sphère : rayon
-    _pad0   : f32,
+    sphere_r: f32,
+    bounce: f32,      // 0 = pas de rebond (cloth), 0.1 petit rebond
+    _pad0: f32,
+    _pad1: f32,
 
-    width   : u32,
-    height  : u32,
-    n       : u32,
-    _pad1   : u32,
-
-    // sphère : centre (aligné 16 bytes)
-    sphere_cx : f32,
-    sphere_cy : f32,
-    sphere_cz : f32,
-    _pad2     : f32,
+    n: u32,
+    _pad2: u32,
+    _pad3: u32,
+    _pad4: u32,
 };
 
 @group(0) @binding(0) var<storage, read>       pos_in  : array<vec4<f32>>;
@@ -30,142 +25,39 @@ struct Params {
 @group(0) @binding(3) var<storage, read_write> vel_out : array<vec4<f32>>;
 @group(0) @binding(4) var<uniform> params : Params;
 
-fn idx_of(x: u32, y: u32) -> u32 {
-    return y * params.width + x;
-}
-
-fn add_spring_force_L0(p: vec3<f32>, q: vec3<f32>, L0: f32, F: ptr<function, vec3<f32>>) {
-    let d = q - p;
-    let L = length(d);
-    if (L > 1e-6) {
-        let dir = d / L;
-        let stretch = L - L0;
-        (*F) = (*F) + params.k * stretch * dir;
-    }
-}
-
 @compute @workgroup_size(64)
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (i >= params.n) { return; }
 
-    let w = params.width;
-    let h = params.height;
+    var p = pos_in[i].xyz;
+    var v = vel_in[i].xyz;
 
-    let x = i % w;
-    let y = i / w;
+    let c = vec3<f32>(params.sphere_cx, params.sphere_cy, params.sphere_cz);
+    let r = params.sphere_r;
 
-    // PINNING : 2 coins du haut
-    if ((y == 0u) && ((x == 0u) || (x == w - 1u))) {
-        pos_out[i] = pos_in[i];
-        vel_out[i] = vec4<f32>(0.0, 0.0, 0.0, vel_in[i].w);
-        return;
-    }
-
-    let pin = pos_in[i];
-    let vin = vel_in[i];
-
-    var p = pin.xyz;
-    var v = vin.xyz;
-
-    // Forces : gravité
-    var F = vec3<f32>(0.0, params.mass * params.g, 0.0);
-
-    let SQRT2 : f32 = 1.41421356237;
-    let L0_struct = params.rest;
-    let L0_shear  = params.rest * SQRT2;
-    let L0_bend   = params.rest * 2.0;
-
-    // -------------------------------
-    // Structural
-    // -------------------------------
-    if (x > 0u) {
-        let j = idx_of(x - 1u, y);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, &F);
-    }
-    if (x + 1u < w) {
-        let j = idx_of(x + 1u, y);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, &F);
-    }
-    if (y > 0u) {
-        let j = idx_of(x, y - 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, &F);
-    }
-    if (y + 1u < h) {
-        let j = idx_of(x, y + 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, &F);
-    }
-
-    // -------------------------------
-    // Shear (diagonales)
-    // -------------------------------
-    if (x > 0u && y > 0u) {
-        let j = idx_of(x - 1u, y - 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_shear, &F);
-    }
-    if (x + 1u < w && y > 0u) {
-        let j = idx_of(x + 1u, y - 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_shear, &F);
-    }
-    if (x > 0u && y + 1u < h) {
-        let j = idx_of(x - 1u, y + 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_shear, &F);
-    }
-    if (x + 1u < w && y + 1u < h) {
-        let j = idx_of(x + 1u, y + 1u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_shear, &F);
-    }
-
-    // -------------------------------
-    // Bend (distance 2)
-    // -------------------------------
-    if (x >= 2u) {
-        let j = idx_of(x - 2u, y);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_bend, &F);
-    }
-    if (x + 2u < w) {
-        let j = idx_of(x + 2u, y);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_bend, &F);
-    }
-    if (y >= 2u) {
-        let j = idx_of(x, y - 2u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_bend, &F);
-    }
-    if (y + 2u < h) {
-        let j = idx_of(x, y + 2u);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_bend, &F);
-    }
-
-    // -------------------------------
-    // Intégration
-    // -------------------------------
-    let a = F / params.mass;
-    v = v + a * params.dt;
-    v = v * params.damping;
-    p = p + v * params.dt;
-
-    // -------------------------------
-    // Collision sphère
-    // -------------------------------
-    let C = vec3<f32>(params.sphere_cx, params.sphere_cy, params.sphere_cz);
-    let d = p - C;
+    let d = p - c;
     let dist = length(d);
 
-    let EPS : f32 = 1e-4;
+    // Si point à l’intérieur de la sphère -> collision
+    if (dist < r) {
+        // normale (si dist ~ 0, on force une normale)
+        var nrm = vec3<f32>(0.0, 1.0, 0.0);
+        if (dist > 1e-6) {
+            nrm = d / dist;
+        }
 
-    if (dist < params.radius + EPS) {
-        let nrm = d / max(dist, 1e-6);
-        // projection sur la surface
-        p = C + nrm * (params.radius + EPS);
+        // Projection sur la surface
+        p = c + nrm * r;
 
-        // annule la vitesse qui rentre dans la sphère (composante normale négative)
+        // Correction vitesse: enlever composante vers l’intérieur
+        // v' = v - (1 + bounce) * dot(v,n) * n  si dot(v,n) < 0
         let vn = dot(v, nrm);
         if (vn < 0.0) {
-            v = v - vn * nrm;
+            v = v - (1.0 + params.bounce) * vn * nrm;
         }
     }
 
-    // sortie (conserver les w)
-    vel_out[i] = vec4<f32>(v, vin.w);
-    pos_out[i] = vec4<f32>(p, pin.w);
+    pos_out[i] = vec4<f32>(p, 1.0);
+    vel_out[i] = vec4<f32>(v, 0.0);
 }
