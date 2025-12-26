@@ -54,11 +54,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     // -------------------------------
     // PINNING : 2 coins du haut
     // -------------------------------
-    if ((y == 0u) && ((x == 0u) || (x == w - 1u))) {
-        pos_out[i] = pos_in[i];
-        vel_out[i] = vec4<f32>(0.0, 0.0, 0.0, 0.0);
-        return;
-    }
+    // if (y == 0u) {
+    //     pos_out[i] = pos_in[i];
+    //     vel_out[i] = vec4<f32>(0.0);
+    //     return;
+    // }
 
     var p = pos_in[i].xyz;
     var v = vel_in[i].xyz;
@@ -131,6 +131,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let a = F / params.mass;
     v = v + a * params.dt;
     v = v * params.damping;
+    // mise au repos (évite les micro-oscillations)
+    // if (length(v) < 0.02) {
+    //     v = vec3<f32>(0.0);
+    // }
+
     p = p + v * params.dt;
 
     vel_out[i] = vec4<f32>(v, 0.0);

@@ -4,44 +4,37 @@ def make_points(n: int = 256, seed: int = 0):
     """
     Crée un ensemble simple de points avec des vitesses constantes.
 
-    Lien avec le projet Cloth Simulation :
-    - positions  : positions initiales des sommets (envoyées au GPU)
-    - velocities : vitesses initiales des sommets (envoyées au GPU)
-    - Chaque point correspondra plus tard à un sommet du tissu
-
     Format mémoire (aligné GPU) :
     - positions  : (n, 4) float32 → vec4<f32> en WGSL
     - velocities : (n, 4) float32 → vec4<f32> en WGSL
     """
-
-    # Générateur pseudo-aléatoire (reproductibilité)
     rng = np.random.default_rng(seed)
 
-    # Positions initiales dans un petit cube centré autour de l'origine
     pos = rng.uniform(-1.0, 1.0, size=(n, 3)).astype(np.float32)
-
-    # Composante w = 1.0 (utile pour l'alignement mémoire et le rendu)
     pos_w = np.ones((n, 1), dtype=np.float32)
-
-    # Positions finales envoyées au GPU
     positions = np.concatenate([pos, pos_w], axis=1)
 
-    # Vitesses constantes initiales (petites valeurs pour la stabilité)
     vel = rng.uniform(-0.2, 0.2, size=(n, 3)).astype(np.float32)
-
-    # Composante w = 0.0 (non utilisée pour les calculs)
     vel_w = np.zeros((n, 1), dtype=np.float32)
-
-    # Vitesses finales envoyées au GPU
     velocities = np.concatenate([vel, vel_w], axis=1)
 
     return positions, velocities
 
-def make_grid_cloth(width: int, height: int, rest: float = 0.1):
+
+def make_grid_cloth(
+    width: int,
+    height: int,
+    rest: float = 0.1,
+    y0: float = 1.5,
+    cx: float = 0.0,
+    cz: float = 0.0
+):
     """
-    Crée une grille régulière WxH (cloth).
-    - Chaque point a 4 voisins structuraux (gauche/droite/haut/bas) sauf aux bords.
-    - rest = distance au repos entre deux voisins.
+    Crée une grille régulière WxH (cloth), centrée autour de (cx, y0, cz).
+
+    - rest = distance au repos entre voisins (pas de la grille)
+    - y0   = hauteur initiale (important pour tomber sur la sphère)
+    - cx,cz = décalage du tissu en X/Z (utile pour casser la symétrie)
 
     Format mémoire :
     - positions  : (N,4) float32 -> vec4<f32> en WGSL
@@ -51,17 +44,16 @@ def make_grid_cloth(width: int, height: int, rest: float = 0.1):
     positions = np.zeros((N, 4), dtype=np.float32)
     velocities = np.zeros((N, 4), dtype=np.float32)
 
-    # centrer le tissu autour de (0, y0, 0)
+    # On centre la grille autour de 0 en X/Z puis on ajoute cx/cz
     ox = -0.5 * (width - 1) * rest
     oz = -0.5 * (height - 1) * rest
-    y0 = 1.0
 
     idx = 0
     for j in range(height):
         for i in range(width):
             x = ox + i * rest
             z = oz + j * rest
-            positions[idx] = (x, y0, z, 1.0)
+            positions[idx] = (x + cx, y0, z + cz, 1.0)
             velocities[idx] = (0.0, 0.0, 0.0, 0.0)
             idx += 1
 
@@ -70,8 +62,8 @@ def make_grid_cloth(width: int, height: int, rest: float = 0.1):
 
 def make_grid_indices(W: int, H: int) -> np.ndarray:
     """
-    Retourne un index buffer (uint32) pour dessiner une grille W×H en triangles.
-    2 triangles par quad => (W-1)*(H-1)*2 triangles => *3 indices.
+    Index buffer (uint32) pour dessiner une grille W×H en triangles.
+    2 triangles par quad => (W-1)*(H-1)*2 triangles => *3 indices
     """
     def idx(x, y):
         return x + y * W
@@ -89,6 +81,7 @@ def make_grid_indices(W: int, H: int) -> np.ndarray:
             indices += [i10, i11, i01]
 
     return np.array(indices, dtype=np.uint32)
+
 
 def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarray:
     """
@@ -120,6 +113,79 @@ def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarra
                 lines += [i00, i11]
 
     return np.array(lines, dtype=np.uint32)
+
+
+def make_sphere_wireframe(radius=1.0, lat=12, lon=24):
+    """
+    Génère un mesh wireframe de sphère (positions + indices lignes).
+    - radius : rayon
+    - lat    : subdivisions latitude
+    - lon    : subdivisions longitude
+    """
+    positions = []
+    indices = []
+
+    for i in range(lat + 1):
+        theta = np.pi * i / lat
+        y = radius * np.cos(theta)
+        r = radius * np.sin(theta)
+
+        for j in range(lon):
+            phi = 2 * np.pi * j / lon
+            x = r * np.cos(phi)
+            z = r * np.sin(phi)
+            positions.append([x, y, z, 1.0])
+
+    def idx(i, j):
+        return i * lon + (j % lon)
+
+    for i in range(lat):
+        for j in range(lon):
+            indices += [idx(i, j), idx(i, j + 1)]
+            indices += [idx(i, j), idx(i + 1, j)]
+
+    return (
+        np.array(positions, dtype=np.float32),
+        np.array(indices, dtype=np.uint32),
+    )
+
+
+def make_uv_sphere_wire(stacks: int = 12, slices: int = 24):
+    """
+    Retourne un mesh sphère wireframe centré en (0,0,0), rayon 1.
+    - positions: (Ns,4) float32
+    - indices_lines: (Ms,) uint32 pour PrimitiveTopology.line_list
+    """
+    verts = []
+
+    for i in range(stacks + 1):
+        v = i / stacks
+        phi = np.pi * v
+        y = np.cos(phi)
+        r = np.sin(phi)
+        for j in range(slices):
+            u = j / slices
+            theta = 2 * np.pi * u
+            x = r * np.cos(theta)
+            z = r * np.sin(theta)
+            verts.append([x, y, z, 1.0])
+
+    positions = np.array(verts, dtype=np.float32)
+
+    def vid(i, j):
+        return i * slices + (j % slices)
+
+    lines = []
+    for i in range(stacks + 1):
+        for j in range(slices):
+            lines += [vid(i, j), vid(i, j + 1)]
+
+    for i in range(stacks):
+        for j in range(slices):
+            lines += [vid(i, j), vid(i + 1, j)]
+
+    indices = np.array(lines, dtype=np.uint32)
+    return positions, indices
 
 
 print("data_init.py loaded.")
