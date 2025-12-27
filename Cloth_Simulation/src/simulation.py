@@ -20,18 +20,18 @@ class ClothSimulation:
         # ===============================
         # PARAMÈTRES PHYSIQUES
         # ===============================
-        self.G = -9.81
+        self.G = -20
 
         self.K_STRUCT = 60.0
-        self.K_SHEAR = 100.0
-        self.K_BEND = 400.0
+        self.K_SHEAR = 80.0
+        self.K_BEND = 200.0
 
         self.DAMPING = 0.995
 
         self.DT = 1 / 240
         self.SUBSTEPS = 20
         self.REST = 0.10
-        self.MASS = 5.0
+        self.MASS = 0.1
 
         self.WORKGROUP_SIZE = 64
 
@@ -56,7 +56,7 @@ class ClothSimulation:
     # ------------------------------------------------------------
     def _init_mesh(self):
         # Grille tissu
-        self.W, self.H = 16 , 16  # nb de points
+        self.W, self.H = 22 , 22  # nb de points
 
         # Sphère (source de vérité de la scène)
         self.sphere_cx, self.sphere_cy, self.sphere_cz = 0.35, 1.0, 0.0
@@ -67,7 +67,7 @@ class ClothSimulation:
         pos, vel = make_grid_cloth(
             self.W, self.H, self.REST,
             y0=cloth_y0,
-            cx=self.sphere_cx + 1, # decalage X pour éviter la symétrie parfaite
+            cx=self.sphere_cx, # decalage X pour éviter la symétrie parfaite si je veux decaler j"ajoute + 1 
             cz=self.sphere_cz,
         )
         vel[:] = 0.0

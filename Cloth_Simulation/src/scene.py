@@ -105,7 +105,7 @@ class Scene:
     # GEOMETRIE
     # ------------------------------------------------------------
     def _init_cloth_geometry(self):
-        W, H = 16, 16  # doit correspondre à simulation.py
+        W, H = 22, 22  # doit correspondre à simulation.py
         self.idx_np = np.asarray(make_grid_line_indices(W, H, diagonals=True), np.uint32)
         self.tri_idx_np = np.asarray(make_grid_indices(W, H), np.uint32)
 
