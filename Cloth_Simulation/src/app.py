@@ -26,21 +26,26 @@ def run_app():
     sim = ClothSimulation(device)
     scene = Scene(canvas, device)
     inputs = InputController(canvas, sim, scene.camera)
+    # inputs = InputController(canvas, sim, scene.camera)  # DÉSACTIVE LES ENTRÉES
 
     depth_tex = None
     depth_view = None
     depth_size = (0, 0)
 
+    
     @canvas.request_draw
     def draw():
         nonlocal depth_tex, depth_view, depth_size
-
-        sim.step()
+        
+        # ✅ AJOUTE CETTE CONDITION
+        if not inputs.paused:
+            sim.step()
+        
         sim.compute_normals()
-
+        
         tex = context.get_current_texture()
         view = tex.create_view()
-
+        
         if depth_tex is None or depth_size != (tex.width, tex.height):
             depth_tex = device.create_texture(
                 size=(tex.width, tex.height, 1),
@@ -49,9 +54,8 @@ def run_app():
             )
             depth_view = depth_tex.create_view()
             depth_size = (tex.width, tex.height)
-
+        
         scene.draw(device, view, depth_view, sim)
-
         canvas.request_draw()
 
     loop.run()

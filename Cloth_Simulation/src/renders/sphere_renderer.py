@@ -8,7 +8,7 @@ class SphereRenderer:
     Sphere wireframe renderer (lines).
     - set_mvp(mvp_bytes)
     - set_sphere((cx,cy,cz), r)
-    - encode(enc, color_view, sphere_pos_buf, sphere_idx_buf, clear=False)
+    - encode(enc, color_view, sphere_pos_buf, sphere_idx_buf, depth_view=None, clear=False)
     """
 
     def __init__(self, canvas, device, index_count: int):
@@ -19,7 +19,6 @@ class SphereRenderer:
 
         self.context = canvas.get_context("wgpu")
         self.texture_format = self.context.get_preferred_format(device.adapter)
-        # IMPORTANT: NE PAS configure ici (fait dans main une seule fois)
 
         shader_code = read_text("shaders/render_sphere.wgsl")
         shader = device.create_shader_module(code=shader_code)
@@ -87,6 +86,12 @@ class SphereRenderer:
                 "topology": wgpu.PrimitiveTopology.line_list,
                 "cull_mode": wgpu.CullMode.none
             },
+            # ✅ AJOUT: Support depth buffer (lecture seule pour wireframe)
+            depth_stencil={
+                "format": wgpu.TextureFormat.depth24plus,
+                "depth_write_enabled": False,  # wireframe ne modifie pas depth
+                "depth_compare": wgpu.CompareFunction.less,
+            },
         )
 
         # Valeur par défaut (au cas où)
@@ -108,14 +113,29 @@ class SphereRenderer:
         ], dtype=np.float32)
         self.queue.write_buffer(self.sphere_buf, 0, vecs.tobytes())
 
-    def encode(self, enc, color_view, sphere_pos_buf, sphere_idx_buf, clear: bool = False):
-        rp = enc.begin_render_pass(color_attachments=[{
-            "view": color_view,
-            "load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
-            "store_op": wgpu.StoreOp.store,
-            "clear_value": (0.1, 0.1, 0.1, 1.0),
-        }])
+    def encode(self, enc, color_view, sphere_pos_buf, sphere_idx_buf, depth_view=None, clear: bool = False):
+        """
+        ✅ MODIFIÉ: Support optionnel du depth buffer (comme ClothRenderer)
+        """
+        attachments = {
+            "color_attachments": [{
+                "view": color_view,
+                "load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
+                "store_op": wgpu.StoreOp.store,
+                "clear_value": (0.1, 0.1, 0.1, 1.0),
+            }]
+        }
 
+        # Support optionnel du depth buffer
+        if depth_view is not None:
+            attachments["depth_stencil_attachment"] = {
+                "view": depth_view,
+                "depth_load_op": wgpu.LoadOp.load,  # on lit le depth existant
+                "depth_store_op": wgpu.StoreOp.store,
+                "depth_clear_value": 1.0,
+            }
+
+        rp = enc.begin_render_pass(**attachments)
         rp.set_pipeline(self.pipeline)
         rp.set_bind_group(0, self.cam_bg, [], 0, 999999)
         rp.set_bind_group(1, self.sphere_bg, [], 0, 999999)

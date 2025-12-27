@@ -26,6 +26,7 @@ class InputController:
     # SOURIS
     # ------------------------------------------------------------
     def _hook_mouse(self):
+        # pass # souris désactivée
         self.canvas.add_event_handler(self.on_pointer_down, "pointer_down")
         self.canvas.add_event_handler(self.on_pointer_up, "pointer_up")
         self.canvas.add_event_handler(self.on_pointer_move, "pointer_move")
@@ -78,6 +79,7 @@ class InputController:
     # CLAVIER
     # ------------------------------------------------------------
     def _hook_keyboard(self):
+        # pass # clavier désactivé
         # Événements clavier (RenderCanvas)
         self.canvas.add_event_handler(self.on_any_event, "key_down")
 

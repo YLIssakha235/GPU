@@ -23,15 +23,15 @@ class ClothSimulation:
         self.G = -9.81
 
         self.K_STRUCT = 60.0
-        self.K_SHEAR = 80.0
-        self.K_BEND = 300.0
+        self.K_SHEAR = 100.0
+        self.K_BEND = 400.0
 
         self.DAMPING = 0.995
 
         self.DT = 1 / 240
-        self.SUBSTEPS = 8
+        self.SUBSTEPS = 20
         self.REST = 0.10
-        self.MASS = 0.1
+        self.MASS = 0.5
 
         self.WORKGROUP_SIZE = 64
 
@@ -39,10 +39,10 @@ class ClothSimulation:
         # SPHÈRE / SOL
         # ===============================
         self.SPHERE_R = 0.8
-        self.MU = 0.6
-        self.EPS = 0.004
+        self.MU = 0.8
+        self.EPS = 0.01
         self.BOUNCE = 0.0
-        self.FLOOR_Y = 0.0
+        self.FLOOR_Y = -2.0
 
         # ===============================
         # INIT MESH + BUFFERS + PIPELINES
@@ -56,13 +56,13 @@ class ClothSimulation:
     # ------------------------------------------------------------
     def _init_mesh(self):
         # Grille tissu
-        self.W, self.H = 12, 12
+        self.W, self.H = 16 , 16  # nb de points
 
         # Sphère (source de vérité de la scène)
         self.sphere_cx, self.sphere_cy, self.sphere_cz = 0.35, 1.0, 0.0
 
         # Position initiale du tissu AU-DESSUS de la sphère
-        cloth_y0 = self.sphere_cy + self.SPHERE_R + 0.10
+        cloth_y0 = self.sphere_cy + self.SPHERE_R + 0.50
 
         pos, vel = make_grid_cloth(
             self.W, self.H, self.REST,

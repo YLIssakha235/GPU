@@ -33,9 +33,9 @@ class Scene:
         # FLAGS DE RENDU (toggles clavier)
         # ===============================
         self.show_cloth_surface = True
-        self.show_cloth_wire = True
+        self.show_cloth_wire = False
         self.show_sphere_surface = True
-        self.show_sphere_wire = False
+        self.show_sphere_wire = True
 
         # ===============================
         # CAMERA ORBIT
@@ -105,7 +105,7 @@ class Scene:
     # GEOMETRIE
     # ------------------------------------------------------------
     def _init_cloth_geometry(self):
-        W, H = 12, 12
+        W, H = 16, 16  # doit correspondre à simulation.py
         self.idx_np = np.asarray(make_grid_line_indices(W, H, diagonals=True), np.uint32)
         self.tri_idx_np = np.asarray(make_grid_indices(W, H), np.uint32)
 
@@ -163,6 +163,10 @@ class Scene:
     def draw(self, device, view_tex, depth_view, sim):
         enc = device.create_command_encoder()
 
+        # ✅ AJOUTE CES 2 LIGNES ICI
+        self.sphere_renderer.set_sphere((sim.sphere_cx, sim.sphere_cy, sim.sphere_cz), sim.SPHERE_R)
+        self.sphere_renderer_lit.set_sphere((sim.sphere_cx, sim.sphere_cy, sim.sphere_cz), sim.SPHERE_R)
+
         cleared = False
 
         if self.show_cloth_surface:
@@ -181,17 +185,18 @@ class Scene:
             )
 
         if self.show_cloth_wire:
-            self.renderer_wire.encode(
-                enc,
-                view_tex,
-                sim.current_pos_buffer,
-                self.idx_buf,
-                depth_view=depth_view,   # ✅ AJOUT ICI
-                clear=False
+            self._call_encode(
+                self.renderer_wire,
+                enc, view_tex, sim.current_pos_buffer, self.idx_buf,
+                depth_view=depth_view, clear=False
             )
 
-
         if self.show_sphere_wire:
-            self.sphere_renderer.encode(enc, view_tex, self.sphere_pos_buf, self.sphere_idx_buf, clear=False)
+            # ✅ CORRECTION: Ajout de depth_view
+            self._call_encode(
+                self.sphere_renderer,
+                enc, view_tex, self.sphere_pos_buf, self.sphere_idx_buf,
+                depth_view=depth_view, clear=False
+            )
 
         device.queue.submit([enc.finish()])
