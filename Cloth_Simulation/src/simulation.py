@@ -31,7 +31,7 @@ class ClothSimulation:
         self.DT = 1 / 240
         self.SUBSTEPS = 20
         self.REST = 0.10
-        self.MASS = 0.5
+        self.MASS = 5.0
 
         self.WORKGROUP_SIZE = 64
 
@@ -40,7 +40,7 @@ class ClothSimulation:
         # ===============================
         self.SPHERE_R = 0.8
         self.MU = 0.8
-        self.EPS = 0.01
+        self.EPS = 0.02
         self.BOUNCE = 0.0
         self.FLOOR_Y = -2.0
 
@@ -67,7 +67,7 @@ class ClothSimulation:
         pos, vel = make_grid_cloth(
             self.W, self.H, self.REST,
             y0=cloth_y0,
-            cx=self.sphere_cx,
+            cx=self.sphere_cx + 1, # decalage X pour éviter la symétrie parfaite
             cz=self.sphere_cz,
         )
         vel[:] = 0.0

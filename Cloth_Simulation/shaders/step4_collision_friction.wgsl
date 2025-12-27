@@ -45,7 +45,7 @@ fn apply_friction_static_dynamic(vt: vec3<f32>, jn_contact: f32, mu: f32) -> vec
 
     // FRICTION STATIQUE : si on a assez de marge, on colle
     // stick_k règle l'agressivité (2..8 typiquement)
-    let stick_k = 8.0;
+    let stick_k = 2.0;
     if (vt_len * stick_k <= limit) {
         return vec3<f32>(0.0);
     }
@@ -64,7 +64,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var v = vel_in[i].xyz;
 
     let c = vec3<f32>(params.cx, params.cy, params.cz);
-    let r = params.r;
+    let r_target = params.r + params.eps;
 
     // =========================================================
     // A) Collision SPHÈRE + friction
@@ -72,22 +72,22 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let d = p - c;
     let dist = length(d);
 
-    if (dist < r) {
+    // ✅ IMPORTANT : collision jusqu’à r_target
+    if (dist < r_target) {
         let n = select(vec3<f32>(0.0, 1.0, 0.0), d / dist, dist > 1e-6);
 
         // Projection sur la surface
-        let r_target = r + params.eps;
-        let penetration = max(0.0, r_target - dist);
+        let penetration = r_target - dist;
         p = c + n * r_target;
 
         // Décomposition vitesse
         let vn = dot(v, n);
         var vt = v - vn * n;
 
-        // Corriger la composante normale (empêche d'entrer)
+        // ✅ Empêcher de rentrer : si vn < 0, on l’annule (bounce=0)
         var vn_corr = vn;
         if (vn < 0.0) {
-            vn_corr = -params.bounce * vn;  // bounce=0 => vn_corr=0
+            vn_corr = -params.bounce * vn; // bounce=0 -> 0
         }
 
         // Contact normal (même au repos)
@@ -95,34 +95,25 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         let jn_penetration = penetration / max(params.dt, 1e-6);
         let jn_contact = max(jn_impact, jn_penetration);
 
-        // Frottement (statique+dynamique) sur la tangentielle
+        // Frottement (statique+dynamique)
         vt = apply_friction_static_dynamic(vt, jn_contact, params.mu);
 
-        // Recomposition propre
         v = vt + vn_corr * n;
     }
 
-
     // =========================================================
-    // B) Collision SOL (plan y = floor_y) + friction
+    // B) Collision SOL
     // =========================================================
     if (p.y < params.floor_y) {
         p.y = params.floor_y + params.eps;
 
         let vy_in = v.y;
         if (vy_in < 0.0) {
-            // bounce
             v.y = -params.bounce * vy_in;
 
-            // tangent sol = (x,z)
             let vt3 = vec3<f32>(v.x, 0.0, v.z);
-
-            // contact normal (même idée)
-            let penetration = (params.floor_y + params.eps) - p.y; // ~0 après projection
             let jn_impact = max(0.0, (1.0 + params.bounce) * (-vy_in));
-            let jn_contact = jn_impact; // sol: impact suffit généralement
-
-            let vt3_new = apply_friction_static_dynamic(vt3, jn_contact, params.mu);
+            let vt3_new = apply_friction_static_dynamic(vt3, jn_impact, params.mu);
             v.x = vt3_new.x;
             v.z = vt3_new.z;
         }

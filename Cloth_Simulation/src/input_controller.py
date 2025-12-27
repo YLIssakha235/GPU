@@ -83,6 +83,13 @@ class InputController:
         # Événements clavier (RenderCanvas)
         self.canvas.add_event_handler(self.on_any_event, "key_down")
 
+    def _clamp(self, v, a, b):
+        return a if v < a else b if v > b else v
+
+    def _print_phys(self):
+        print(f"⚙️  MU={self.simulation.MU:.3f} | G={self.simulation.G:.2f} | DAMP={self.simulation.DAMPING:.4f} | SUB={self.simulation.SUBSTEPS}")
+
+
 
     def on_any_event(self, evt):
         key = (evt.get("key") or evt.get("text") or "").lower()
@@ -113,6 +120,28 @@ class InputController:
         elif key == "h":
             self._print_help()
 
+        elif key == "[":
+            self.simulation.MU = self._clamp(self.simulation.MU - 0.05, 0.0, 2.0)
+            print(f"🧊 MU -> {self.simulation.MU:.3f} (plus glisse)")
+
+        elif key == "]":
+            self.simulation.MU = self._clamp(self.simulation.MU + 0.05, 0.0, 2.0)
+            print(f"🧲 MU -> {self.simulation.MU:.3f} (plus colle)")
+
+        elif key == "-":
+            # rend G moins négatif => chute plus lente
+            self.simulation.G = self._clamp(self.simulation.G + 1.0, -50.0, -1.0)
+            print(f"🌍 G -> {self.simulation.G:.2f} (chute moins vite)")
+
+        elif key == "=" or key == "+":
+            # rend G plus négatif => chute plus rapide
+            self.simulation.G = self._clamp(self.simulation.G - 1.0, -50.0, -1.0)
+            print(f"🌍 G -> {self.simulation.G:.2f} (chute plus vite)")
+
+        elif key == "i":
+            self._print_phys()
+
+
     # ------------------------------------------------------------
     # AIDE
     # ------------------------------------------------------------
@@ -125,4 +154,9 @@ class InputController:
         print("  3 : sphère surface")
         print("  4 : sphère wireframe")
         print("  souris : orbit caméra")
-        print("  molette : zoom\n")
+        print("  molette : zoom")
+        print("\n🧪 Démo physique :")
+        print("  [ / ] : MU - / + (glisse)")
+        print("  - / = : |G| - / + (chute)")
+        print("  I : affiche MU, G\n")
+
