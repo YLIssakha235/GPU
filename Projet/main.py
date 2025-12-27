@@ -92,6 +92,17 @@ def main():
     context.configure(device=device, format=texture_format)
 
     # ------------------------------------------------------------
+    # Depth buffer (IMPORTANT: taille = swapchain réelle, DPI Windows)
+    # ------------------------------------------------------------
+    DEPTH_FORMAT = wgpu.TextureFormat.depth24plus
+    depth_tex = None
+    depth_view = None
+    depth_size = (0, 0)  # (width, height)
+
+
+
+
+    # ------------------------------------------------------------
     # 5) Buffers GPU (ping-pong)
     # ------------------------------------------------------------
     pos_a = device.create_buffer_with_data(
@@ -296,13 +307,17 @@ def main():
 
     @canvas.request_draw
     def draw_frame():
-        nonlocal frame, ping
+        nonlocal frame, ping, depth_tex, depth_view, depth_size
         frame += 1
 
         cx, cy, cz = sphere_cx, sphere_cy, sphere_cz
         r = sphere_r
 
+        # =========================================================
+        # 1) PHYSIQUE (SUBSTEPS)
+        # =========================================================
         for _ in range(SUBSTEPS):
+            # --- Springs ---
             springs_params_bytes = b"".join([
                 np.array([dt_sub, G, REST, MASS], dtype=np.float32).tobytes(),
                 np.array([K_STRUCT, K_SHEAR, K_BEND, DAMPING], dtype=np.float32).tobytes(),
@@ -320,6 +335,7 @@ def main():
             device.queue.submit([enc.finish()])
             ping = not ping
 
+            # --- Collision sphere + friction + sol ---
             sphere_params_bytes = b"".join([
                 np.array([
                     dt_sub, cx, cy, cz,
@@ -340,9 +356,17 @@ def main():
             device.queue.submit([enc.finish()])
             ping = not ping
 
+        # Buffer courant après ping-pong
         current_pos = pos_a if ping else pos_b
 
-        device.queue.write_buffer(params_normals_buf, 0, np.array([W, H, 0, 0], dtype=np.uint32).tobytes())
+        # =========================================================
+        # 2) NORMALES
+        # =========================================================
+        device.queue.write_buffer(
+            params_normals_buf,
+            0,
+            np.array([W, H, 0, 0], dtype=np.uint32).tobytes()
+        )
         normals_bg = normals_bg_a if (current_pos is pos_a) else normals_bg_b
 
         enc = device.create_command_encoder()
@@ -353,25 +377,45 @@ def main():
         cp.end()
         device.queue.submit([enc.finish()])
 
+        # =========================================================
+        # 3) RENDU (avec depth dynamique)
+        # =========================================================
         tex = context.get_current_texture()
         view_tex = tex.create_view()
         enc = device.create_command_encoder()
 
-        # sphère = physique
+        # --- IMPORTANT: depth doit matcher la taille réelle du swapchain ---
+        w = tex.width
+        h = tex.height
+        if depth_tex is None or depth_size != (w, h):
+            depth_tex = device.create_texture(
+                size=(w, h, 1),
+                format=DEPTH_FORMAT,
+                usage=wgpu.TextureUsage.RENDER_ATTACHMENT,
+            )
+            depth_view = depth_tex.create_view()
+            depth_size = (w, h)
+            print(f"✅ depth resized to {w}x{h}")
+
+        # Sphère rendue = sphère physique
         sphere_renderer.set_sphere((cx, cy, cz), r)
-        sphere_renderer_lit.set_sphere((cx, cy, cz), r)  # ✅
+        sphere_renderer_lit.set_sphere((cx, cy, cz), r)
 
-        # 1) tissu surface
-        renderer_lit.encode(enc, view_tex, current_pos, normal_buf, tri_idx_buf, clear=True)
+        # 1) Tissu surface (clear = True) -> clear couleur + depth
+        renderer_lit.encode(enc, view_tex, current_pos, normal_buf, tri_idx_buf, depth_view, clear=True)
 
-        # 2) sphère surface ✅
-        sphere_renderer_lit.encode(enc, view_tex, sphere_tri_pos_buf, sphere_tri_idx_buf, clear=False)
 
-        # 3) tissu wireframe
+        # 2) Sphère surface (clear = False) -> même depth
+        # ✅ ICI : on rend la sphère avec les vertex TRIANGLES, pas wire
+        sphere_renderer_lit.encode(enc, view_tex, sphere_tri_pos_buf, sphere_tri_idx_buf, depth_view, clear=False)
+
+
+
+        # 3) Tissu wireframe (overlay)
         renderer_wire.encode(enc, view_tex, current_pos, idx_buf, clear=False)
 
-        # 4) sphère wireframe (optionnel)
-        #sphere_renderer.encode(enc, view_tex, sphere_pos_buf, sphere_idx_buf, clear=False)
+        # 4) Sphère wireframe (overlay) (optionnel)
+        # sphere_renderer.encode(enc, view_tex, sphere_pos_buf, sphere_idx_buf, clear=False)
 
         device.queue.submit([enc.finish()])
 
@@ -379,6 +423,7 @@ def main():
             print("frame", frame)
 
         canvas.request_draw()
+
 
     loop.run()
 

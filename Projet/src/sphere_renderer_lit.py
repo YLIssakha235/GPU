@@ -8,7 +8,7 @@ class SphereRendererLit:
     Sphere surface renderer (triangles).
     - set_mvp(mvp_bytes)
     - set_sphere((cx,cy,cz), r)
-    - encode(enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, clear=False)
+    - encode(enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, depth_view, clear=False)
     """
     def __init__(self, canvas, device, index_count: int):
         self.canvas = canvas
@@ -18,13 +18,12 @@ class SphereRendererLit:
 
         self.context = canvas.get_context("wgpu")
         self.texture_format = self.context.get_preferred_format(device.adapter)
-        # IMPORTANT: NE PAS configure ici (fait dans main une seule fois)
+        # IMPORTANT: NE PAS configure ici (fait dans main)
 
-        # ✅ shader lit (surface)
         shader_code = read_text("shaders/render_sphere_lit.wgsl")
         shader = device.create_shader_module(code=shader_code)
 
-        # Camera = 64 bytes
+        # Camera uniform (64 bytes)
         self.cam_buf = device.create_buffer(size=64, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
         self.cam_bgl = device.create_bind_group_layout(entries=[{
             "binding": 0,
@@ -50,7 +49,7 @@ class SphereRendererLit:
 
         pl = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl, self.sphere_bgl])
 
-        # ✅ TRIANGLES (surface), pas line_list
+        # ✅ Pipeline triangles + depth
         self.pipeline = device.create_render_pipeline(
             layout=pl,
             vertex={
@@ -68,9 +67,15 @@ class SphereRendererLit:
                 "targets": [{"format": self.texture_format}],
             },
             primitive={"topology": wgpu.PrimitiveTopology.triangle_list, "cull_mode": wgpu.CullMode.back},
+            depth_stencil={
+                "format": wgpu.TextureFormat.depth24plus,
+                "depth_write_enabled": True,
+                "depth_compare": wgpu.CompareFunction.less,
+            },
         )
 
-        self.set_sphere((0.0, 0.8, 0.0), 0.6)
+        # default sphere
+        self.set_sphere((0.0, 1.0, 0.0), 0.8)
 
     def set_mvp(self, mvp_bytes: bytes):
         self.queue.write_buffer(self.cam_buf, 0, mvp_bytes)
@@ -88,13 +93,21 @@ class SphereRendererLit:
         ], dtype=np.float32)
         self.queue.write_buffer(self.sphere_buf, 0, vecs.tobytes())
 
-    def encode(self, enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, clear: bool = False):
-        rp = enc.begin_render_pass(color_attachments=[{
-            "view": color_view,
-            "load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
-            "store_op": wgpu.StoreOp.store,
-            "clear_value": (0.1, 0.1, 0.1, 1.0),
-        }])
+    def encode(self, enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, depth_view, clear: bool = False):
+        rp = enc.begin_render_pass(
+            color_attachments=[{
+                "view": color_view,
+                "load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
+                "store_op": wgpu.StoreOp.store,
+                "clear_value": (0.1, 0.1, 0.1, 1.0),
+            }],
+            depth_stencil_attachment={
+                "view": depth_view,
+                "depth_load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
+                "depth_store_op": wgpu.StoreOp.store,
+                "depth_clear_value": 1.0,
+            },
+        )
 
         rp.set_pipeline(self.pipeline)
         rp.set_bind_group(0, self.cam_bg, [], 0, 999999)
