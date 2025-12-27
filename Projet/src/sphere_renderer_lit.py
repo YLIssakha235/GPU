@@ -3,14 +3,13 @@ import numpy as np
 from .gpu_utils import read_text
 
 
-class SphereRenderer:
+class SphereRendererLit:
     """
-    Sphere wireframe renderer (lines).
+    Sphere surface renderer (triangles).
     - set_mvp(mvp_bytes)
     - set_sphere((cx,cy,cz), r)
-    - encode(enc, color_view, sphere_pos_buf, sphere_idx_buf, clear=False)
+    - encode(enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, clear=False)
     """
-
     def __init__(self, canvas, device, index_count: int):
         self.canvas = canvas
         self.device = device
@@ -21,16 +20,12 @@ class SphereRenderer:
         self.texture_format = self.context.get_preferred_format(device.adapter)
         # IMPORTANT: NE PAS configure ici (fait dans main une seule fois)
 
-        shader_code = read_text("shaders/render_sphere.wgsl")
+        # ✅ shader lit (surface)
+        shader_code = read_text("shaders/render_sphere_lit.wgsl")
         shader = device.create_shader_module(code=shader_code)
 
-        # -------------------------
-        # Camera uniform (64 bytes)
-        # -------------------------
-        self.cam_buf = device.create_buffer(
-            size=64,
-            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
-        )
+        # Camera = 64 bytes
+        self.cam_buf = device.create_buffer(size=64, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
         self.cam_bgl = device.create_bind_group_layout(entries=[{
             "binding": 0,
             "visibility": wgpu.ShaderStage.VERTEX,
@@ -41,19 +36,11 @@ class SphereRenderer:
             "resource": {"buffer": self.cam_buf, "offset": 0, "size": 64}
         }])
 
-        # -------------------------
-        # Sphere uniform (112 bytes) = 7 vec4
-        # v0 = center (cx,cy,cz,0)
-        # v1 = (r,0,0,0)
-        # v2..v6 padding
-        # -------------------------
-        self.sphere_buf = device.create_buffer(
-            size=112,
-            usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
-        )
+        # SphereU = 7 vec4 = 112 bytes (même format que le wire)
+        self.sphere_buf = device.create_buffer(size=112, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
         self.sphere_bgl = device.create_bind_group_layout(entries=[{
             "binding": 0,
-            "visibility": wgpu.ShaderStage.VERTEX,
+            "visibility": wgpu.ShaderStage.VERTEX | wgpu.ShaderStage.FRAGMENT,
             "buffer": {"type": wgpu.BufferBindingType.uniform},
         }])
         self.sphere_bg = device.create_bind_group(layout=self.sphere_bgl, entries=[{
@@ -63,6 +50,7 @@ class SphereRenderer:
 
         pl = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl, self.sphere_bgl])
 
+        # ✅ TRIANGLES (surface), pas line_list
         self.pipeline = device.create_render_pipeline(
             layout=pl,
             vertex={
@@ -71,11 +59,7 @@ class SphereRenderer:
                 "buffers": [{
                     "array_stride": 16,  # vec4<f32>
                     "step_mode": wgpu.VertexStepMode.vertex,
-                    "attributes": [{
-                        "shader_location": 0,
-                        "offset": 0,
-                        "format": wgpu.VertexFormat.float32x4
-                    }],
+                    "attributes": [{"shader_location": 0, "offset": 0, "format": wgpu.VertexFormat.float32x4}],
                 }],
             },
             fragment={
@@ -83,13 +67,9 @@ class SphereRenderer:
                 "entry_point": "fs_main",
                 "targets": [{"format": self.texture_format}],
             },
-            primitive={
-                "topology": wgpu.PrimitiveTopology.line_list,
-                "cull_mode": wgpu.CullMode.none
-            },
+            primitive={"topology": wgpu.PrimitiveTopology.triangle_list, "cull_mode": wgpu.CullMode.back},
         )
 
-        # Valeur par défaut (au cas où)
         self.set_sphere((0.0, 0.8, 0.0), 0.6)
 
     def set_mvp(self, mvp_bytes: bytes):
@@ -108,7 +88,7 @@ class SphereRenderer:
         ], dtype=np.float32)
         self.queue.write_buffer(self.sphere_buf, 0, vecs.tobytes())
 
-    def encode(self, enc, color_view, sphere_pos_buf, sphere_idx_buf, clear: bool = False):
+    def encode(self, enc, color_view, sphere_pos_buf, sphere_tri_idx_buf, clear: bool = False):
         rp = enc.begin_render_pass(color_attachments=[{
             "view": color_view,
             "load_op": wgpu.LoadOp.clear if clear else wgpu.LoadOp.load,
@@ -120,6 +100,6 @@ class SphereRenderer:
         rp.set_bind_group(0, self.cam_bg, [], 0, 999999)
         rp.set_bind_group(1, self.sphere_bg, [], 0, 999999)
         rp.set_vertex_buffer(0, sphere_pos_buf, 0)
-        rp.set_index_buffer(sphere_idx_buf, wgpu.IndexFormat.uint32, 0)
+        rp.set_index_buffer(sphere_tri_idx_buf, wgpu.IndexFormat.uint32, 0)
         rp.draw_indexed(self.index_count, 1, 0, 0, 0)
         rp.end()

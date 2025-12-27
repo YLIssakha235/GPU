@@ -1,5 +1,9 @@
 import numpy as np
 
+# ============================================================
+# Données simples (debug)
+# ============================================================
+
 def make_points(n: int = 256, seed: int = 0):
     """
     Crée un ensemble simple de points avec des vitesses constantes.
@@ -20,6 +24,10 @@ def make_points(n: int = 256, seed: int = 0):
 
     return positions, velocities
 
+
+# ============================================================
+# Tissu : grille régulière
+# ============================================================
 
 def make_grid_cloth(
     width: int,
@@ -76,7 +84,7 @@ def make_grid_indices(W: int, H: int) -> np.ndarray:
             i01 = idx(x, y + 1)
             i11 = idx(x + 1, y + 1)
 
-            # Triangles CCW
+            # Triangles (ordre CCW)
             indices += [i00, i10, i01]
             indices += [i10, i11, i01]
 
@@ -114,6 +122,10 @@ def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarra
 
     return np.array(lines, dtype=np.uint32)
 
+
+# ============================================================
+# Sphère : wireframe (lignes)
+# ============================================================
 
 def make_sphere_wireframe(radius=1.0, lat=12, lon=24):
     """
@@ -176,15 +188,65 @@ def make_uv_sphere_wire(stacks: int = 12, slices: int = 24):
         return i * slices + (j % slices)
 
     lines = []
+    # anneaux
     for i in range(stacks + 1):
         for j in range(slices):
             lines += [vid(i, j), vid(i, j + 1)]
-
+    # méridiens
     for i in range(stacks):
         for j in range(slices):
             lines += [vid(i, j), vid(i + 1, j)]
 
     indices = np.array(lines, dtype=np.uint32)
+    return positions, indices
+
+
+# ============================================================
+# Sphère : TRIANGLES (surface)  ✅ ajout pour SphereRendererLit
+# ============================================================
+
+def make_uv_sphere_triangles(stacks: int = 16, slices: int = 32):
+    """
+    Retourne un mesh sphère en TRIANGLES, centré (0,0,0), rayon 1.
+
+    - positions: (Nv,4) float32  (vec4<f32>)
+    - indices_triangles: (Nt,) uint32  pour PrimitiveTopology.triangle_list
+
+    Remarque :
+    - On utilise (slices + 1) sommets par anneau pour éviter la couture UV.
+    - Normales = position.xyz normalisée (dans le shader, pas besoin de buffer normal).
+    """
+    verts = []
+
+    for i in range(stacks + 1):
+        v = i / stacks
+        phi = np.pi * v
+        y = np.cos(phi)
+        r = np.sin(phi)
+
+        for j in range(slices + 1):
+            u = j / slices
+            theta = 2 * np.pi * u
+            x = r * np.cos(theta)
+            z = r * np.sin(theta)
+            verts.append([x, y, z, 1.0])
+
+    positions = np.array(verts, dtype=np.float32)
+
+    idx = []
+    stride = slices + 1
+    for i in range(stacks):
+        for j in range(slices):
+            a = i * stride + j
+            b = a + 1
+            c = a + stride
+            d = c + 1
+
+            # 2 triangles par quad
+            idx += [a, c, b]
+            idx += [b, c, d]
+
+    indices = np.array(idx, dtype=np.uint32)
     return positions, indices
 
 
