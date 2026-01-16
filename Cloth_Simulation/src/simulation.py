@@ -1,4 +1,3 @@
-# src/simulation.py
 """
 Simulation physique du tissu sur GPU (compute shaders).
 - ressorts (structural / shear / bend)
@@ -17,9 +16,7 @@ class ClothSimulation:
     def __init__(self, device):
         self.device = device
 
-        # ===============================
         # PARAMÈTRES PHYSIQUES
-        # ===============================
         self.G = -20
 
         self.K_STRUCT = 60.0
@@ -35,33 +32,24 @@ class ClothSimulation:
 
         self.WORKGROUP_SIZE = 64
 
-        # ===============================
-        # SPHÈRE / SOL
-        # ===============================
+
         self.SPHERE_R = 0.8
         self.MU = 0.8
         self.EPS = 0.02
         self.BOUNCE = 0.0
         self.FLOOR_Y = -2.0
 
-        # ===============================
         # INIT MESH + BUFFERS + PIPELINES
-        # ===============================
         self._init_mesh()
         self._init_buffers()
         self._init_pipelines()
 
-    # ------------------------------------------------------------
-    # INIT CPU : tissu
-    # ------------------------------------------------------------
+    # init CPU tissu
     def _init_mesh(self):
-        # Grille tissu
         self.W, self.H = 22 , 22  # nb de points
 
-        # Sphère (source de vérité de la scène)
         self.sphere_cx, self.sphere_cy, self.sphere_cz = 0.35, 1.0, 0.0
 
-        # Position initiale du tissu AU-DESSUS de la sphère
         cloth_y0 = self.sphere_cy + self.SPHERE_R + 0.50
 
         pos, vel = make_grid_cloth(
@@ -84,9 +72,8 @@ class ClothSimulation:
         # Dispatch compute
         self.dispatch_x = (self.N + self.WORKGROUP_SIZE - 1) // self.WORKGROUP_SIZE
 
-    # ------------------------------------------------------------
+
     # BUFFERS GPU
-    # ------------------------------------------------------------
     def _init_buffers(self):
         d = self.device
 
@@ -110,30 +97,27 @@ class ClothSimulation:
             usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_DST,
         )
 
-        # Normales (compute -> rendu) : STORAGE + VERTEX
+        # Normales, STORAGE + VERTEX
         self.normal_buf = d.create_buffer(
             size=self.positions_np.nbytes,
             usage=wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.VERTEX | wgpu.BufferUsage.COPY_DST,
         )
 
-        # Ping = True => "A est courant"
+        # Ping = True  "A est courant"
         self.ping = True
 
-    # ------------------------------------------------------------
+ 
     # PIPELINES COMPUTE
-    # ------------------------------------------------------------
     def _init_pipelines(self):
         d = self.device
 
-        # =========================================================
-        # A) SPRINGS (struct + shear + bend)
-        # =========================================================
+        #  SPRINGS struct + shear + bend
         self.params_springs = d.create_buffer(
-            size=48,  # 3 blocs (2x vec4<f32> + 1x vec4<u32>) = 48 bytes
+            size=48, 
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-        springs_code = open("shaders/step2_structural_shear_bend.wgsl", encoding="utf-8").read()
+        springs_code = open("shaders/structural_shear_bend.wgsl", encoding="utf-8").read()
         springs_mod = d.create_shader_module(code=springs_code)
 
         springs_bgl = d.create_bind_group_layout(entries=[
@@ -144,7 +128,7 @@ class ClothSimulation:
             {"binding": 4, "visibility": wgpu.ShaderStage.COMPUTE, "buffer": {"type": "uniform"}},
         ])
 
-        # 0 = A->B, 1 = B->A
+        
         self.bg_springs = [
             d.create_bind_group(layout=springs_bgl, entries=[
                 {"binding": 0, "resource": {"buffer": self.pos_a}},
@@ -167,15 +151,14 @@ class ClothSimulation:
             compute={"module": springs_mod, "entry_point": "main"},
         )
 
-        # =========================================================
-        # B) COLLISION (sphère + friction + sol)
-        # =========================================================
+        
+        # B) collision sphère + friction + sol
         self.params_collision = d.create_buffer(
-            size=64,  # 12 floats (48 bytes) + 4 u32 (16 bytes)
+            size=64, 
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
         )
 
-        collision_code = open("shaders/step4_collision_friction.wgsl", encoding="utf-8").read()
+        collision_code = open("shaders/collision_friction.wgsl", encoding="utf-8").read()
         collision_mod = d.create_shader_module(code=collision_code)
 
         collision_bgl = d.create_bind_group_layout(entries=[
@@ -208,9 +191,8 @@ class ClothSimulation:
             compute={"module": collision_mod, "entry_point": "main"},
         )
 
-        # =========================================================
-        # C) NORMALES (sur grille)
-        # =========================================================
+
+        # NORMALES sur grille
         self.params_normals = d.create_buffer(
             size=16,  # vec4<u32> : (W,H,0,0)
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
@@ -243,9 +225,8 @@ class ClothSimulation:
             compute={"module": normals_mod, "entry_point": "main"},
         )
 
-    # ------------------------------------------------------------
+   
     # API PUBLIQUE
-    # ------------------------------------------------------------
     def reset(self):
         """Réinitialise le tissu à l'état initial."""
         q = self.device.queue
@@ -267,9 +248,8 @@ class ClothSimulation:
 
         for _ in range(self.SUBSTEPS):
 
-            # =====================================================
-            # 1) SPRINGS
-            # =====================================================
+
+            # SPRINGS
             springs_params = b"".join([
                 np.array([dt_sub, self.G, self.REST, self.MASS], dtype=np.float32).tobytes(),
                 np.array([self.K_STRUCT, self.K_SHEAR, self.K_BEND, self.DAMPING], dtype=np.float32).tobytes(),
@@ -289,9 +269,7 @@ class ClothSimulation:
 
             self.ping = not self.ping
 
-            # =====================================================
-            # 2) COLLISION (sphère + friction + sol)
-            # =====================================================
+            # collision sphère + friction + sol
             collision_params = b"".join([
                 np.array([
                     dt_sub,

@@ -1,4 +1,3 @@
-# src/app.py
 """
 Point central de l'application.
 - initialise GPU
@@ -37,7 +36,7 @@ def run_app():
     def draw():
         nonlocal depth_tex, depth_view, depth_size
         
-        # ✅ AJOUTE CETTE CONDITION
+        # Met à jour la simulation si pas en pause
         if not inputs.paused:
             sim.step()
         

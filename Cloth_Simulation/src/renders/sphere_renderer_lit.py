@@ -23,7 +23,7 @@ class SphereRendererLit:
         shader_code = read_text("shaders/render_sphere_lit.wgsl")
         shader = device.create_shader_module(code=shader_code)
 
-        # Camera uniform (64 bytes)
+        # Camera uniform 
         self.cam_buf = device.create_buffer(size=64, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
         self.cam_bgl = device.create_bind_group_layout(entries=[{
             "binding": 0,
@@ -35,7 +35,7 @@ class SphereRendererLit:
             "resource": {"buffer": self.cam_buf, "offset": 0, "size": 64}
         }])
 
-        # SphereU = 7 vec4 = 112 bytes (même format que le wire)
+        # SphereU uniform
         self.sphere_buf = device.create_buffer(size=112, usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST)
         self.sphere_bgl = device.create_bind_group_layout(entries=[{
             "binding": 0,
@@ -49,7 +49,7 @@ class SphereRendererLit:
 
         pl = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl, self.sphere_bgl])
 
-        # ✅ Pipeline triangles + depth
+        # Pipeline triangles + depth
         self.pipeline = device.create_render_pipeline(
             layout=pl,
             vertex={

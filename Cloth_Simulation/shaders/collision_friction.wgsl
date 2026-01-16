@@ -1,8 +1,5 @@
-// Collision sphère + friction (Coulomb) + collision sol (plan Y)
-// => Ajout : friction STATIQUE (stick) + friction DYNAMIQUE (glisse)
-
 struct SphereParams {
-    // ---- 12 floats = 48 bytes ----
+   
     dt: f32,
     cx: f32,
     cy: f32,
@@ -18,7 +15,7 @@ struct SphereParams {
     _pad_f1: f32,
     _pad_f2: f32,
 
-    // ---- 4 u32 = 16 bytes ----
+    
     n: u32,
     _pad0: u32,
     _pad1: u32,
@@ -31,10 +28,8 @@ struct SphereParams {
 @group(0) @binding(3) var<storage, read_write> vel_out : array<vec4<f32>>;
 @group(0) @binding(4) var<uniform> params : SphereParams;
 
-// ------------------------------------------------------------
-// Frottement Coulomb avec "stick" (statique) + glisse (dynamique)
-// jn_contact : "force normale" approx (>=0) même au repos
-// ------------------------------------------------------------
+
+// Applique le modèle de frottement statique et dynamique
 fn apply_friction_static_dynamic(vt: vec3<f32>, jn_contact: f32, mu: f32) -> vec3<f32> {
     let vt_len = length(vt);
     if (vt_len < 1e-6) {
@@ -43,14 +38,13 @@ fn apply_friction_static_dynamic(vt: vec3<f32>, jn_contact: f32, mu: f32) -> vec
 
     let limit = mu * jn_contact;
 
-    // FRICTION STATIQUE : si on a assez de marge, on colle
-    // stick_k règle l'agressivité (2..8 typiquement)
+    // fric statique si on a assez de marge, on colle
     let stick_k = 2.0;
     if (vt_len * stick_k <= limit) {
         return vec3<f32>(0.0);
     }
 
-    // FRICTION DYNAMIQUE : on réduit la norme tangentielle
+    // fric dynamique : on réduit la norme tangentielle
     let vt_new_len = max(0.0, vt_len - limit);
     return vt * (vt_new_len / vt_len);
 }
@@ -66,31 +60,30 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let c = vec3<f32>(params.cx, params.cy, params.cz);
     let r_target = params.r + params.eps;
 
-    // =========================================================
-    // A) Collision SPHÈRE + friction
-    // =========================================================
+
+    // collision sphère
     let d = p - c;
     let dist = length(d);
 
-    // ✅ IMPORTANT : collision jusqu’à r_target
+    
     if (dist < r_target) {
         let n = select(vec3<f32>(0.0, 1.0, 0.0), d / dist, dist > 1e-6);
 
-        // Projection sur la surface
+        
         let penetration = r_target - dist;
         p = c + n * r_target;
 
-        // Décomposition vitesse
+        //decom vitesse
         let vn = dot(v, n);
         var vt = v - vn * n;
 
-        // ✅ Empêcher de rentrer : si vn < 0, on l’annule (bounce=0)
+        // empêche de rentrer le tissu si vn < 0, on l’annule (bounce=0)
         var vn_corr = vn;
         if (vn < 0.0) {
-            vn_corr = -params.bounce * vn; // bounce=0 -> 0
+            vn_corr = -params.bounce * vn; 
         }
 
-        // Contact normal (même au repos)
+        // Contact normal 
         let jn_impact = max(0.0, (1.0 + params.bounce) * (-vn));
         let jn_penetration = penetration / max(params.dt, 1e-6);
         let jn_contact = max(jn_impact, jn_penetration);
@@ -101,9 +94,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         v = vt + vn_corr * n;
     }
 
-    // =========================================================
-    // B) Collision SOL
-    // =========================================================
+    // collision sol
     if (p.y < params.floor_y) {
         p.y = params.floor_y + params.eps;
 

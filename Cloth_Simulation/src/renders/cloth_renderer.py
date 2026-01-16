@@ -21,9 +21,8 @@ class ClothRenderer:
             code=read_text("shaders/render_basic.wgsl")
         )
 
-        # -------------------------
+        
         # Uniform caméra (MVP)
-        # -------------------------
         self.cam_buf = device.create_buffer(
             size=64,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
@@ -51,9 +50,7 @@ class ClothRenderer:
             bind_group_layouts=[self.cam_bgl]
         )
 
-        # -------------------------
         # Render pipeline wireframe + depth (lecture seule)
-        # -------------------------
         self.pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -80,14 +77,12 @@ class ClothRenderer:
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
-                "depth_write_enabled": False,  # IMPORTANT
+                "depth_write_enabled": False,  # lecture seule
                 "depth_compare": wgpu.CompareFunction.less,
             },
         )
 
-    # ------------------------------------------------------------
     # API
-    # ------------------------------------------------------------
     def set_mvp(self, mvp_bytes: bytes):
         self.queue.write_buffer(self.cam_buf, 0, mvp_bytes)
 

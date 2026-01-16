@@ -3,7 +3,7 @@ struct Camera {
 };
 @group(0) @binding(0) var<uniform> cam: Camera;
 
-// Même format que ton wireframe : 7 vec4 = 112 bytes
+
 struct SphereU {
     v0: vec4<f32>, // (cx, cy, cz, 0)
     v1: vec4<f32>, // (r, 0, 0, 0)

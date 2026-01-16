@@ -1,4 +1,3 @@
-# src/input_controller.py
 """
 Gestion des entrées utilisateur :
 - souris : orbit caméra + zoom
@@ -22,9 +21,7 @@ class InputController:
 
         self._print_help()
 
-    # ------------------------------------------------------------
     # SOURIS
-    # ------------------------------------------------------------
     def _hook_mouse(self):
         # pass # souris désactivée
         self.canvas.add_event_handler(self.on_pointer_down, "pointer_down")
@@ -75,9 +72,7 @@ class InputController:
         )
         self.scene.update_mvp()
 
-    # ------------------------------------------------------------
     # CLAVIER
-    # ------------------------------------------------------------
     def _hook_keyboard(self):
         # pass # clavier désactivé
         # Événements clavier (RenderCanvas)
@@ -129,12 +124,12 @@ class InputController:
             print(f"🧲 MU -> {self.simulation.MU:.3f} (plus colle)")
 
         elif key == "-":
-            # rend G moins négatif => chute plus lente
+            # rend G moins négatif : chute plus lente
             self.simulation.G = self._clamp(self.simulation.G + 1.0, -50.0, -1.0)
             print(f"🌍 G -> {self.simulation.G:.2f} (chute moins vite)")
 
         elif key == "=" or key == "+":
-            # rend G plus négatif => chute plus rapide
+            # rend G plus négatif : chute plus rapide
             self.simulation.G = self._clamp(self.simulation.G - 1.0, -50.0, -1.0)
             print(f"🌍 G -> {self.simulation.G:.2f} (chute plus vite)")
 
@@ -142,9 +137,8 @@ class InputController:
             self._print_phys()
 
 
-    # ------------------------------------------------------------
+
     # AIDE
-    # ------------------------------------------------------------
     def _print_help(self):
         print("\n🎛️  Contrôles :")
         print("  P : pause / reprise")

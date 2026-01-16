@@ -14,9 +14,8 @@ class ClothRendererLit:
 
         shader = device.create_shader_module(code=read_text("shaders/render_lit.wgsl"))
 
-        # -------------------------
-        # Camera uniform (64 bytes)
-        # -------------------------
+       
+        # Camera uniform 
         self.cam_buf = device.create_buffer(
             size=64,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,
@@ -40,9 +39,8 @@ class ClothRendererLit:
 
         pipeline_layout = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl])
 
-        # -------------------------
+        
         # Render pipeline (avec depth)
-        # -------------------------
         self.pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -81,7 +79,7 @@ class ClothRendererLit:
                 "cull_mode": wgpu.CullMode.none,
             },
 
-            # ✅ Depth test ON
+            # Depth test ON
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
                 "depth_write_enabled": True,

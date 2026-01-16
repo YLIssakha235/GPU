@@ -1,7 +1,7 @@
 struct Camera { mvp: mat4x4<f32> };
 @group(0) @binding(0) var<uniform> cam: Camera;
 
-// 7 * 16 = 112 bytes
+
 struct SphereU {
   data: array<vec4<f32>, 7>,
 };

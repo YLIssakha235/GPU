@@ -1,8 +1,6 @@
 import numpy as np
 
-# ============================================================
-# Données simples (debug)
-# ============================================================
+# Données simples pour tests divers
 
 def make_points(n: int = 256, seed: int = 0):
     """
@@ -25,9 +23,8 @@ def make_points(n: int = 256, seed: int = 0):
     return positions, velocities
 
 
-# ============================================================
+
 # Tissu : grille régulière
-# ============================================================
 
 def make_grid_cloth(
     width: int,
@@ -123,10 +120,8 @@ def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarra
     return np.array(lines, dtype=np.uint32)
 
 
-# ============================================================
-# Sphère : wireframe (lignes)
-# ============================================================
 
+# Sphère : wireframe (lignes)
 def make_sphere_wireframe(radius=1.0, lat=12, lon=24):
     """
     Génère un mesh wireframe de sphère (positions + indices lignes).
@@ -201,9 +196,8 @@ def make_uv_sphere_wire(stacks: int = 12, slices: int = 24):
     return positions, indices
 
 
-# ============================================================
-# Sphère : TRIANGLES (surface)  ✅ ajout pour SphereRendererLit
-# ============================================================
+
+# Sphère : TRIANGLES (surface)  ajout pour SphereRendererLit
 
 def make_uv_sphere_triangles(stacks: int = 16, slices: int = 32):
     """

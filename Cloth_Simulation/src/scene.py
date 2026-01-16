@@ -1,4 +1,3 @@
-# src/scene.py
 """
 Gestion de la scène visible :
 - rendu du tissu (surface + wireframe)
@@ -29,30 +28,23 @@ class Scene:
         self.device = device
         self.canvas = canvas
 
-        # ===============================
         # FLAGS DE RENDU (toggles clavier)
-        # ===============================
         self.show_cloth_surface = True
         self.show_cloth_wire = False
         self.show_sphere_surface = True
         self.show_sphere_wire = True
 
-        # ===============================
         # CAMERA ORBIT
-        # ===============================
         self._init_camera()
         self.camera = self # pour compatibilité avec InputController
 
-        # ===============================
         # GEOMETRIE & RENDERERS
-        # ===============================
         self._init_cloth_geometry()
         self._init_sphere_geometry()
         self._init_renderers(canvas, device)
 
-    # ------------------------------------------------------------
+
     # CAMERA
-    # ------------------------------------------------------------
     def _init_camera(self):
         self.aspect = 900 / 700
         self.model = np.eye(4, dtype=np.float32)
@@ -101,9 +93,8 @@ class Scene:
         self.sphere_renderer.set_mvp(mvp_bytes)
         self.sphere_renderer_lit.set_mvp(mvp_bytes)
 
-    # ------------------------------------------------------------
+
     # GEOMETRIE
-    # ------------------------------------------------------------
     def _init_cloth_geometry(self):
         W, H = 22, 22  # doit correspondre à simulation.py
         self.idx_np = np.asarray(make_grid_line_indices(W, H, diagonals=True), np.uint32)
@@ -139,9 +130,8 @@ class Scene:
             usage=wgpu.BufferUsage.INDEX,
         )
 
-    # ------------------------------------------------------------
+
     # RENDERERS
-    # ------------------------------------------------------------
     def _init_renderers(self, canvas, device):
         self.renderer_lit = ClothRendererLit(canvas, device, self.tri_idx_np.size)
         self.renderer_wire = ClothRenderer(canvas, device, self.idx_np.size)
@@ -151,9 +141,8 @@ class Scene:
 
         self.update_mvp()
 
-    # ------------------------------------------------------------
+
     # DRAW
-    # ------------------------------------------------------------
     def _call_encode(self, renderer, *args, depth_view=None, clear=False):
         sig = inspect.signature(renderer.encode)
         if "depth_view" in sig.parameters:
@@ -163,7 +152,6 @@ class Scene:
     def draw(self, device, view_tex, depth_view, sim):
         enc = device.create_command_encoder()
 
-        # ✅ AJOUTE CES 2 LIGNES ICI
         self.sphere_renderer.set_sphere((sim.sphere_cx, sim.sphere_cy, sim.sphere_cz), sim.SPHERE_R)
         self.sphere_renderer_lit.set_sphere((sim.sphere_cx, sim.sphere_cy, sim.sphere_cz), sim.SPHERE_R)
 
@@ -192,7 +180,6 @@ class Scene:
             )
 
         if self.show_sphere_wire:
-            # ✅ CORRECTION: Ajout de depth_view
             self._call_encode(
                 self.sphere_renderer,
                 enc, view_tex, self.sphere_pos_buf, self.sphere_idx_buf,

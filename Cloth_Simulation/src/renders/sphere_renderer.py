@@ -23,9 +23,8 @@ class SphereRenderer:
         shader_code = read_text("shaders/render_sphere.wgsl")
         shader = device.create_shader_module(code=shader_code)
 
-        # -------------------------
-        # Camera uniform (64 bytes)
-        # -------------------------
+
+        # Camera uniform 
         self.cam_buf = device.create_buffer(
             size=64,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
@@ -40,12 +39,10 @@ class SphereRenderer:
             "resource": {"buffer": self.cam_buf, "offset": 0, "size": 64}
         }])
 
-        # -------------------------
-        # Sphere uniform (112 bytes) = 7 vec4
+
+        # Sphere uniform 
         # v0 = center (cx,cy,cz,0)
         # v1 = (r,0,0,0)
-        # v2..v6 padding
-        # -------------------------
         self.sphere_buf = device.create_buffer(
             size=112,
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST
@@ -86,7 +83,7 @@ class SphereRenderer:
                 "topology": wgpu.PrimitiveTopology.line_list,
                 "cull_mode": wgpu.CullMode.none
             },
-            # ✅ AJOUT: Support depth buffer (lecture seule pour wireframe)
+            # Support depth buffer (lecture seule pour wireframe)
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
                 "depth_write_enabled": False,  # wireframe ne modifie pas depth
@@ -115,7 +112,7 @@ class SphereRenderer:
 
     def encode(self, enc, color_view, sphere_pos_buf, sphere_idx_buf, depth_view=None, clear: bool = False):
         """
-        ✅ MODIFIÉ: Support optionnel du depth buffer (comme ClothRenderer)
+        MODIFIÉ: Support optionnel du depth buffer (comme ClothRenderer)
         """
         attachments = {
             "color_attachments": [{

@@ -1,20 +1,18 @@
-// Étape 2C — Ressorts structural + shear + bend + gravité
-// Double buffering : pos_in/vel_in → pos_out/vel_out
+
 
 struct Params {
-    // bloc 0 (4 x f32)
     dt: f32,
     g: f32,
     rest: f32,
     mass: f32,
 
-    // bloc 1 (4 x f32)
+    
     k_struct: f32,
     k_shear: f32,
     k_bend: f32,
     damping: f32,
 
-    // bloc 2 (4 x u32)
+    
     width: u32,
     height: u32,
     n: u32,
@@ -70,7 +68,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let L0_shear  = params.rest * 1.41421356237; // sqrt(2)
     let L0_bend   = params.rest * 2.0;
 
-    // ---------- Structural (4 voisins) ----------
+    //  Structural (4 voisins
     if (x > 0u) {
         let j = idx_of(x - 1u, y);
         add_spring_force_L0(p, pos_in[j].xyz, L0_struct, params.k_struct, &F);
@@ -88,7 +86,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         add_spring_force_L0(p, pos_in[j].xyz, L0_struct, params.k_struct, &F);
     }
 
-    // ---------- Shear (4 diagonales) ----------
+    //  Shear (4 diagonales
     if (x > 0u && y > 0u) {
         let j = idx_of(x - 1u, y - 1u);
         add_spring_force_L0(p, pos_in[j].xyz, L0_shear, params.k_shear, &F);
@@ -106,7 +104,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         add_spring_force_L0(p, pos_in[j].xyz, L0_shear, params.k_shear, &F);
     }
 
-    // ---------- Bend (distance 2) ----------
+    //  Bend (distance 2)
     if (x >= 2u) {
         let j = idx_of(x - 2u, y);
         add_spring_force_L0(p, pos_in[j].xyz, L0_bend, params.k_bend, &F);
