@@ -23,7 +23,7 @@ fn vs_main(v: VSIn) -> VSOut {
 
 @fragment
 fn fs_main(i: VSOut) -> @location(0) vec4<f32> {
-  // lumière directionnelle simple
+  // direction lumière
   let L = normalize(vec3<f32>(0.3, 1.0, 0.4));
   //let L = normalize(vec3<f32>(-1.0, 0.2, 0.0));
 

@@ -18,7 +18,7 @@ class SphereRendererLit:
 
         self.context = canvas.get_context("wgpu")
         self.texture_format = self.context.get_preferred_format(device.adapter)
-        # IMPORTANT: NE PAS configure ici (fait dans main)
+        
 
         shader_code = read_text("shaders/render_sphere_lit.wgsl")
         shader = device.create_shader_module(code=shader_code)
@@ -49,7 +49,7 @@ class SphereRendererLit:
 
         pl = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl, self.sphere_bgl])
 
-        # Pipeline triangles + depth
+        # Pipeline triangles et depth
         self.pipeline = device.create_render_pipeline(
             layout=pl,
             vertex={

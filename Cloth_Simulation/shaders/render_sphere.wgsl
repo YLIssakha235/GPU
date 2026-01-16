@@ -1,11 +1,11 @@
 struct Camera { mvp: mat4x4<f32> };
-@group(0) @binding(0) var<uniform> cam: Camera;
+@group(0) @binding(0) var<uniform> cam: Camera; // camera matrix
 
 
 struct SphereU {
   data: array<vec4<f32>, 7>,
 };
-@group(1) @binding(0) var<uniform> sph: SphereU;
+@group(1) @binding(0) var<uniform> sph: SphereU; // sphere data
 
 struct VSIn { @location(0) position: vec4<f32> };
 struct VSOut { @builtin(position) clip: vec4<f32> };
@@ -14,11 +14,11 @@ struct VSOut { @builtin(position) clip: vec4<f32> };
 fn vs_main(v: VSIn) -> VSOut {
   var o: VSOut;
 
-  let center = sph.data[0].xyz;
-  let radius = sph.data[1].x;
+  let center = sph.data[0].xyz; 
+  let radius = sph.data[1].x; 
 
   let world = v.position.xyz * radius + center;
-  o.clip = cam.mvp * vec4<f32>(world, 1.0);
+  o.clip = cam.mvp * vec4<f32>(world, 1.0); 
   return o;
 }
 

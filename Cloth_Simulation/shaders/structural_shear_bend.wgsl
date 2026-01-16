@@ -3,21 +3,22 @@
 struct Params {
     dt: f32,
     g: f32,
-    rest: f32,
+    rest: f32, // longueur au repos entre 2 points
     mass: f32,
 
     
     k_struct: f32,
     k_shear: f32,
     k_bend: f32,
-    damping: f32,
+    damping: f32, // amortissement, stablise la simulation reduit les oscillations
 
     
-    width: u32,
+    width: u32, 
     height: u32,
-    n: u32,
-    _pad: u32,
+    n: u32, 
+    _pad: u32, 
 };
+
 
 @group(0) @binding(0) var<storage, read>  pos_in  : array<vec4<f32>>;
 @group(0) @binding(1) var<storage, read>  vel_in  : array<vec4<f32>>;
@@ -26,10 +27,10 @@ struct Params {
 @group(0) @binding(4) var<uniform> params : Params;
 
 fn idx_of(x: u32, y: u32) -> u32 {
-    return y * params.width + x;
+    return y * params.width + x; 
 }
 
-// Force ressort avec longueur au repos L0 donnée + raideur k donnée
+// Force ressort avec longueur au repos L0 donnée et raideur k donnée
 fn add_spring_force_L0(
     p: vec3<f32>,
     q: vec3<f32>,
@@ -38,24 +39,24 @@ fn add_spring_force_L0(
     force: ptr<function, vec3<f32>>
 ) {
     let d = q - p;
-    let L = length(d);
+    let L = length(d); // distance actuelle
     if (L > 1e-6) {
-        let dir = d / L;
-        let stretch = L - L0;
-        (*force) = (*force) + k * stretch * dir;
+        let dir = d / L; 
+        let stretch = L - L0; 
+        (*force) = (*force) + k * stretch * dir; // Fc= kc*d
     }
 }
 
-@compute @workgroup_size(64)
+@compute @workgroup_size(64) 
 fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
-    let i = gid.x;
-    if (i >= params.n) { return; }
+    let i = gid.x; 
+    if (i >= params.n) { return; } 
 
-    let w = params.width;
-    let h = params.height;
+    let w = params.width; 
+    let h = params.height; 
 
-    let x = i % w;
-    let y = i / w;
+    let x = i % w; 
+    let y = i / w;  
 
     var p = pos_in[i].xyz;
     var v = vel_in[i].xyz;
@@ -64,14 +65,14 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     var F = vec3<f32>(0.0, params.mass * params.g, 0.0);
 
     // longueurs au repos
-    let L0_struct = params.rest;
-    let L0_shear  = params.rest * 1.41421356237; // sqrt(2)
+    let L0_struct = params.rest; 
+    let L0_shear  = params.rest * 1.41421356237; 
     let L0_bend   = params.rest * 2.0;
 
-    //  Structural (4 voisins
+    //  Structural (4 voisins)
     if (x > 0u) {
-        let j = idx_of(x - 1u, y);
-        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, params.k_struct, &F);
+        let j = idx_of(x - 1u, y); 
+        add_spring_force_L0(p, pos_in[j].xyz, L0_struct, params.k_struct, &F); 
     }
     if (x + 1u < w) {
         let j = idx_of(x + 1u, y);
@@ -86,9 +87,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         add_spring_force_L0(p, pos_in[j].xyz, L0_struct, params.k_struct, &F);
     }
 
-    //  Shear (4 diagonales
+    //  Shear (4 diagonales)
     if (x > 0u && y > 0u) {
-        let j = idx_of(x - 1u, y - 1u);
+        let j = idx_of(x - 1u, y - 1u); 
         add_spring_force_L0(p, pos_in[j].xyz, L0_shear, params.k_shear, &F);
     }
     if (x + 1u < w && y > 0u) {
@@ -105,7 +106,7 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     }
 
     //  Bend (distance 2)
-    if (x >= 2u) {
+    if (x >= 2u) { 
         let j = idx_of(x - 2u, y);
         add_spring_force_L0(p, pos_in[j].xyz, L0_bend, params.k_bend, &F);
     }
@@ -124,9 +125,9 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
 
     // intégration
     let a = F / params.mass;
-    v = v + a * params.dt;
-    v = v * params.damping;
-    p = p + v * params.dt;
+    v = v + a * params.dt; // v(t+dt) = v(t) + a*dt
+    v = v * params.damping; // amortissement
+    p = p + v * params.dt; // p(t+dt) = p(t) + v*dt
 
     vel_out[i] = vec4<f32>(v, 0.0);
     pos_out[i] = vec4<f32>(p, 1.0);

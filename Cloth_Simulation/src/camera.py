@@ -2,7 +2,7 @@ import numpy as np
 
 
 def normalize(v: np.ndarray) -> np.ndarray:
-    n = np.linalg.norm(v)
+    n = np.linalg.norm(v) 
     return v / n if n > 0 else v
 
 

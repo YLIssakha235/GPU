@@ -109,7 +109,7 @@ def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarra
         for x in range(W):
             lines += [idx(x, y), idx(x, y + 1)]
 
-    # diagonales (optionnel) : une diagonale par quad
+    # diagonales une diagonale par plaquette
     if diagonals:
         for y in range(H - 1):
             for x in range(W - 1):
@@ -121,7 +121,7 @@ def make_grid_line_indices(W: int, H: int, diagonals: bool = False) -> np.ndarra
 
 
 
-# Sphère : wireframe (lignes)
+# Sphère wireframe 
 def make_sphere_wireframe(radius=1.0, lat=12, lon=24):
     """
     Génère un mesh wireframe de sphère (positions + indices lignes).
@@ -197,7 +197,7 @@ def make_uv_sphere_wire(stacks: int = 12, slices: int = 24):
 
 
 
-# Sphère : TRIANGLES (surface)  ajout pour SphereRendererLit
+# Sphère TRIANGLES (surface)  ajout pour SphereRendererLit
 
 def make_uv_sphere_triangles(stacks: int = 16, slices: int = 32):
     """

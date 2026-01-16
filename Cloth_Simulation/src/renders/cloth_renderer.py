@@ -10,9 +10,9 @@ class ClothRenderer:
     """
 
     def __init__(self, canvas, device, index_count: int):
-        self.device = device
-        self.queue = device.queue
-        self.index_count = int(index_count)
+        self.device = device 
+        self.queue = device.queue 
+        self.index_count = int(index_count) 
 
         context = canvas.get_context("wgpu")
         self.texture_format = context.get_preferred_format(device.adapter)
@@ -50,7 +50,7 @@ class ClothRenderer:
             bind_group_layouts=[self.cam_bgl]
         )
 
-        # Render pipeline wireframe + depth (lecture seule)
+        # Render pipeline wireframe depth lecture seule
         self.pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -72,8 +72,8 @@ class ClothRenderer:
                 "targets": [{"format": self.texture_format}],
             },
             primitive={
-                "topology": wgpu.PrimitiveTopology.line_list,
-                "cull_mode": wgpu.CullMode.none,
+                "topology": wgpu.PrimitiveTopology.line_list, # wireframe
+                "cull_mode": wgpu.CullMode.none, # pas de culling
             },
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
@@ -109,7 +109,7 @@ class ClothRenderer:
                 "view": depth_view,
                 "depth_load_op": wgpu.LoadOp.load,
                 "depth_store_op": wgpu.StoreOp.store,
-                "depth_clear_value": 1.0,  # OBLIGATOIRE
+                "depth_clear_value": 1.0, 
             }
 
         rp = enc.begin_render_pass(**attachments)

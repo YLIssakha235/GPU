@@ -6,12 +6,12 @@ struct SphereParams {
     cz: f32,
 
     r: f32,
-    bounce: f32,
+    bounce: f32, // coef de restitution [0..1]
     mu: f32,
-    eps: f32,
+    eps: f32, // marge de sécurité pour éviter les pénétrations
 
     floor_y: f32,
-    _pad_f0: f32,
+    _pad_f0: f32, 
     _pad_f1: f32,
     _pad_f2: f32,
 
@@ -31,12 +31,12 @@ struct SphereParams {
 
 // Applique le modèle de frottement statique et dynamique
 fn apply_friction_static_dynamic(vt: vec3<f32>, jn_contact: f32, mu: f32) -> vec3<f32> {
-    let vt_len = length(vt);
-    if (vt_len < 1e-6) {
+    let vt_len = length(vt); 
+    if (vt_len < 1e-6) { 
         return vec3<f32>(0.0);
     }
 
-    let limit = mu * jn_contact;
+    let limit = mu * jn_contact; 
 
     // fric statique si on a assez de marge, on colle
     let stick_k = 2.0;
@@ -44,9 +44,9 @@ fn apply_friction_static_dynamic(vt: vec3<f32>, jn_contact: f32, mu: f32) -> vec
         return vec3<f32>(0.0);
     }
 
-    // fric dynamique : on réduit la norme tangentielle
+    // fric dynamique on réduit la norme tangentielle
     let vt_new_len = max(0.0, vt_len - limit);
-    return vt * (vt_new_len / vt_len);
+    return vt * (vt_new_len / vt_len); 
 }
 
 @compute @workgroup_size(64)
@@ -54,27 +54,27 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
     let i = gid.x;
     if (i >= params.n) { return; }
 
-    var p = pos_in[i].xyz;
+    var p = pos_in[i].xyz; 
     var v = vel_in[i].xyz;
 
-    let c = vec3<f32>(params.cx, params.cy, params.cz);
-    let r_target = params.r + params.eps;
+    let c = vec3<f32>(params.cx, params.cy, params.cz); 
+    let r_target = params.r + params.eps; 
 
 
     // collision sphère
-    let d = p - c;
+    let d = p - c; 
     let dist = length(d);
 
     
     if (dist < r_target) {
-        let n = select(vec3<f32>(0.0, 1.0, 0.0), d / dist, dist > 1e-6);
+        let n = select(vec3<f32>(0.0, 1.0, 0.0), d / dist, dist > 1e-6); 
 
         
         let penetration = r_target - dist;
-        p = c + n * r_target;
+        p = c + n * r_target; 
 
         //decom vitesse
-        let vn = dot(v, n);
+        let vn = dot(v, n); 
         var vt = v - vn * n;
 
         // empêche de rentrer le tissu si vn < 0, on l’annule (bounce=0)
@@ -84,11 +84,11 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
         }
 
         // Contact normal 
-        let jn_impact = max(0.0, (1.0 + params.bounce) * (-vn));
-        let jn_penetration = penetration / max(params.dt, 1e-6);
+        let jn_impact = max(0.0, (1.0 + params.bounce) * (-vn)); // j = (1+e)*mvn
+        let jn_penetration = penetration / max(params.dt, 1e-6); 
         let jn_contact = max(jn_impact, jn_penetration);
 
-        // Frottement (statique+dynamique)
+        // Frottement (statique et dynamique)
         vt = apply_friction_static_dynamic(vt, jn_contact, params.mu);
 
         v = vt + vn_corr * n;

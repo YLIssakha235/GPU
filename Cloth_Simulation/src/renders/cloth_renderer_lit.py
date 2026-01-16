@@ -39,8 +39,8 @@ class ClothRendererLit:
 
         pipeline_layout = device.create_pipeline_layout(bind_group_layouts=[self.cam_bgl])
 
-        
-        # Render pipeline (avec depth)
+       
+        # Render pipeline avec depth
         self.pipeline = device.create_render_pipeline(
             layout=pipeline_layout,
             vertex={
@@ -75,14 +75,14 @@ class ClothRendererLit:
                 "targets": [{"format": self.texture_format}],
             },
             primitive={
-                "topology": wgpu.PrimitiveTopology.triangle_list,
-                "cull_mode": wgpu.CullMode.none,
+                "topology": wgpu.PrimitiveTopology.triangle_list, # triangles
+                "cull_mode": wgpu.CullMode.none, # pas de culling
             },
 
             # Depth test ON
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
-                "depth_write_enabled": True,
+                "depth_write_enabled": True, 
                 "depth_compare": wgpu.CompareFunction.less,
             },
         )

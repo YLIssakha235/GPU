@@ -1,10 +1,3 @@
-"""
-Point central de l'application.
-- initialise GPU
-- crée simulation + scène
-- gère la boucle draw
-"""
-
 from rendercanvas.auto import RenderCanvas, loop
 from wgpu.utils import get_default_device
 import wgpu
@@ -12,6 +5,13 @@ import wgpu
 from src.simulation import ClothSimulation
 from src.scene import Scene
 from src.input_controller import InputController
+
+"""
+Point central de l'application.
+- initialise GPU
+- crée simulation et scène
+- gère la boucle draw
+"""
 
 
 def run_app():

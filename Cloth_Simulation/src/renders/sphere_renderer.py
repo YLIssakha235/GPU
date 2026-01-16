@@ -83,7 +83,7 @@ class SphereRenderer:
                 "topology": wgpu.PrimitiveTopology.line_list,
                 "cull_mode": wgpu.CullMode.none
             },
-            # Support depth buffer (lecture seule pour wireframe)
+            
             depth_stencil={
                 "format": wgpu.TextureFormat.depth24plus,
                 "depth_write_enabled": False,  # wireframe ne modifie pas depth
@@ -91,7 +91,7 @@ class SphereRenderer:
             },
         )
 
-        # Valeur par défaut (au cas où)
+        # Valeur par défaut 
         self.set_sphere((0.0, 0.8, 0.0), 0.6)
 
     def set_mvp(self, mvp_bytes: bytes):
@@ -111,9 +111,6 @@ class SphereRenderer:
         self.queue.write_buffer(self.sphere_buf, 0, vecs.tobytes())
 
     def encode(self, enc, color_view, sphere_pos_buf, sphere_idx_buf, depth_view=None, clear: bool = False):
-        """
-        MODIFIÉ: Support optionnel du depth buffer (comme ClothRenderer)
-        """
         attachments = {
             "color_attachments": [{
                 "view": color_view,
@@ -123,7 +120,7 @@ class SphereRenderer:
             }]
         }
 
-        # Support optionnel du depth buffer
+        # Support du depth buffer
         if depth_view is not None:
             attachments["depth_stencil_attachment"] = {
                 "view": depth_view,

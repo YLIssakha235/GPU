@@ -1,10 +1,3 @@
-"""
-Gestion de la scène visible :
-- rendu du tissu (surface + wireframe)
-- rendu de la sphère (surface + wireframe)
-- gestion de la caméra et du MVP
-"""
-
 import numpy as np
 import inspect
 import wgpu
@@ -21,6 +14,14 @@ from src.renders.cloth_renderer import ClothRenderer
 from src.renders.cloth_renderer_lit import ClothRendererLit
 from src.renders.sphere_renderer import SphereRenderer
 from src.renders.sphere_renderer_lit import SphereRendererLit
+
+"""
+Gestion de la scène visible :
+- rendu du tissu (surface + wireframe)
+- rendu de la sphère (surface + wireframe)
+- gestion de la caméra et du MVP
+"""
+
 
 
 class Scene:
@@ -96,7 +97,7 @@ class Scene:
 
     # GEOMETRIE
     def _init_cloth_geometry(self):
-        W, H = 22, 22  # doit correspondre à simulation.py
+        W, H = 22, 22  # doit correspondre à simulation.py sinon ça bug
         self.idx_np = np.asarray(make_grid_line_indices(W, H, diagonals=True), np.uint32)
         self.tri_idx_np = np.asarray(make_grid_indices(W, H), np.uint32)
 

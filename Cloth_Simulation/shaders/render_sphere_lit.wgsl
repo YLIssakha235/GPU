@@ -29,8 +29,8 @@ fn vs_main(input: VSIn) -> VSOut {
     let c = sph.v0.xyz;
     let r = sph.v1.x;
 
-    let unit = input.pos.xyz;
-    let world = c + r * unit;
+    let unit = input.pos.xyz; // point sur sphère unité
+    let world = c + r * unit; 
 
     var out: VSOut;
     out.normal = normalize(unit);

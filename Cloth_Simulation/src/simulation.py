@@ -1,3 +1,8 @@
+import numpy as np
+import wgpu
+
+from src.data_init import make_grid_cloth
+
 """
 Simulation physique du tissu sur GPU (compute shaders).
 - ressorts (structural / shear / bend)
@@ -5,11 +10,6 @@ Simulation physique du tissu sur GPU (compute shaders).
 - ping-pong buffers
 - calcul des normales
 """
-
-import numpy as np
-import wgpu
-
-from src.data_init import make_grid_cloth
 
 
 class ClothSimulation:
@@ -21,7 +21,7 @@ class ClothSimulation:
 
         self.K_STRUCT = 60.0
         self.K_SHEAR = 80.0
-        self.K_BEND = 200.0
+        self.K_BEND = 120.0
 
         self.DAMPING = 0.995
 
@@ -46,7 +46,7 @@ class ClothSimulation:
 
     # init CPU tissu
     def _init_mesh(self):
-        self.W, self.H = 22 , 22  # nb de points
+        self.W, self.H = 22 , 22 
 
         self.sphere_cx, self.sphere_cy, self.sphere_cz = 0.35, 1.0, 0.0
 
@@ -55,7 +55,7 @@ class ClothSimulation:
         pos, vel = make_grid_cloth(
             self.W, self.H, self.REST,
             y0=cloth_y0,
-            cx=self.sphere_cx, # decalage X pour éviter la symétrie parfaite si je veux decaler j"ajoute + 1 
+            cx=self.sphere_cx, 
             cz=self.sphere_cz,
         )
         vel[:] = 0.0
@@ -70,7 +70,7 @@ class ClothSimulation:
         self.N = int(self.positions_np.shape[0])
 
         # Dispatch compute
-        self.dispatch_x = (self.N + self.WORKGROUP_SIZE - 1) // self.WORKGROUP_SIZE
+        self.dispatch_x = (self.N + self.WORKGROUP_SIZE - 1) // self.WORKGROUP_SIZE 
 
 
     # BUFFERS GPU
@@ -152,7 +152,7 @@ class ClothSimulation:
         )
 
         
-        # B) collision sphère + friction + sol
+        # collision sphère friction sol
         self.params_collision = d.create_buffer(
             size=64, 
             usage=wgpu.BufferUsage.UNIFORM | wgpu.BufferUsage.COPY_DST,

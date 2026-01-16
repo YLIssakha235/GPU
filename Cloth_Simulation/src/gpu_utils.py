@@ -10,7 +10,7 @@ def create_storage_buffer(device: wgpu.GPUDevice, data: np.ndarray):
     """Crée un buffer STORAGE pour compute shaders."""
     usage = wgpu.BufferUsage.STORAGE | wgpu.BufferUsage.COPY_DST | wgpu.BufferUsage.COPY_SRC
     buf = device.create_buffer_with_data(data=data, usage=usage)
-    return buf
+    return buf 
 
 def create_vertex_storage_buffer(device: wgpu.GPUDevice, data: np.ndarray):
     """
