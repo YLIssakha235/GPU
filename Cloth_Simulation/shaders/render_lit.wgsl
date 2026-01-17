@@ -29,8 +29,8 @@ fn fs_main(i: VSOut) -> @location(0) vec4<f32> {
 
   let ndotl = max(0.0, dot(i.n, L));
 
-  // couleur tissu (un peu bleutée) et ambient
-  let base = vec3<f32>(0.2, 0.6, 1.0);
+  // couleur tissu 
+  let base = vec3<f32>(0.1, 0.6, 1.0);
   let ambient = 0.25;
   let col = base * (ambient + (1.0 - ambient) * ndotl);
 

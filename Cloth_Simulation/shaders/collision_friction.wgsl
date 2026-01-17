@@ -108,7 +108,20 @@ fn main(@builtin(global_invocation_id) gid: vec3<u32>) {
             v.x = vt3_new.x;
             v.z = vt3_new.z;
         }
+
+        
+        let contact_damp = 0.995;   
+        v.x *= contact_damp;
+        v.z *= contact_damp;
+
+        
+        v.y *= 0.95;
+
     }
+
+    
+
+
 
     pos_out[i] = vec4<f32>(p, 1.0);
     vel_out[i] = vec4<f32>(v, 0.0);

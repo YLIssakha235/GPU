@@ -43,7 +43,7 @@ fn fs_main(input: VSOut) -> @location(0) vec4<f32> {
     let light_dir = normalize(vec3<f32>(0.3, 0.9, 0.2));
     let ndl = max(0.0, dot(input.normal, light_dir));
 
-    let base = vec3<f32>(0.25, 0.25, 0.28);
+    let base = vec3<f32>(0.1, 0.1, 0.28);
     let col = base * (0.3 + 0.7 * ndl);
 
     return vec4<f32>(col, 1.0);

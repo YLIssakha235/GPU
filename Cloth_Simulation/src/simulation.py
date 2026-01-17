@@ -17,26 +17,26 @@ class ClothSimulation:
         self.device = device
 
         # PARAMÈTRES PHYSIQUES
-        self.G = -20
+        self.G = -9.81  
 
-        self.K_STRUCT = 60.0
-        self.K_SHEAR = 80.0
-        self.K_BEND = 120.0
+        self.K_STRUCT = 100.0
+        self.K_SHEAR = 50.0
+        self.K_BEND = 10.0
 
         self.DAMPING = 0.995
 
-        self.DT = 1 / 240
-        self.SUBSTEPS = 20
-        self.REST = 0.10
+        self.DT = 1 / 60 
+        self.SUBSTEPS = 30
+        self.REST = 0.10 
         self.MASS = 0.1
 
-        self.WORKGROUP_SIZE = 64
+        self.WORKGROUP_SIZE = 64 
 
 
         self.SPHERE_R = 0.8
-        self.MU = 0.8
-        self.EPS = 0.02
-        self.BOUNCE = 0.0
+        self.MU = 0
+        self.EPS = 0.05
+        self.BOUNCE = 0
         self.FLOOR_Y = -2.0
 
         # INIT MESH + BUFFERS + PIPELINES
@@ -244,7 +244,7 @@ class ClothSimulation:
         - collision (ping)
         pour chaque substep
         """
-        dt_sub = np.float32(self.DT / self.SUBSTEPS)
+        dt_sub = np.float32(self.DT / self.SUBSTEPS) # sous-steps par frame
 
         for _ in range(self.SUBSTEPS):
 
