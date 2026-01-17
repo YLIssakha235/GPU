@@ -34,7 +34,7 @@ class ClothSimulation:
 
 
         self.SPHERE_R = 0.8
-        self.MU = 0
+        self.MU = 0.5
         self.EPS = 0.05
         self.BOUNCE = 0
         self.FLOOR_Y = -2.0

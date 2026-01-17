@@ -16,7 +16,7 @@ Point central de l'application.
 
 def run_app():
     device = get_default_device()
-    canvas = RenderCanvas(title="Cloth Simulation (refactor)", size=(900, 700))
+    canvas = RenderCanvas(title="Cloth Simulation", size=(900, 700))
 
     context = canvas.get_context("wgpu")
     format = context.get_preferred_format(device.adapter)
